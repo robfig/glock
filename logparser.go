@@ -1,18 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"go/build"
+	"io"
 	"os"
 	"os/exec"
 	"path"
-	"strings"
-
-	"bufio"
-
-	"io"
-
 	"regexp"
+	"strings"
 )
 
 // diff represents a line of difference in a commit.
@@ -100,7 +97,7 @@ func buildCommands(diffs []diff) []command {
 	return cmds
 }
 
-func main() {
+func main2() {
 	var gopath = build.Default.SplitPathList(build.Default.GOPATH)[0]
 	var cmds = buildCommands(readDiffLines(os.Stdin))
 	for _, cmd := range cmds {
