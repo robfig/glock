@@ -138,7 +138,7 @@ func main() {
 				continue
 			}
 
-			output, err = exec.Command(vcs...).CombinedOutput()
+			output, err = exec.Command(vcs[0], vcs[1:]...).CombinedOutput()
 			fmt.Println(string(output))
 			if err != nil {
 				fmt.Println("Error:", err)
