@@ -7,6 +7,7 @@ import (
 	"go/build"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -72,15 +73,17 @@ func runSave(cmd *Command, args []string) {
 // Keep edits to vcs.go separate from the stock version.
 
 var headCmds = map[string]string{
-	"git": "rev-parse head",
-	"hg":  "id",
-	// TODO: Bzr
+	"git": "rev-parse head",  // 2bebebd91805dbb931317f7a4057e4e8de9d9781
+	"hg":  "id",              // 19114a3ee7d5 tip
+	"bzr": "log -r-1 --line", // 50: Dimiter Naydenov 2014-02-12 [merge] ec2: Added (Un)AssignPrivateIPAddresses APIs
 }
+
+var revisionSeparator = regexp.MustCompile(`[ :]+`)
 
 func (v *vcsCmd) head(dir, repo string) (string, error) {
 	var output, err = v.runOutput(dir, headCmds[v.cmd], "dir", dir, "repo", repo)
 	if err != nil {
 		return "", err
 	}
-	return string(output), nil
+	return revisionSeparator.Split(string(output), -1)[0], nil
 }
