@@ -1,25 +1,40 @@
 GLock is a utility to lock dependencies to specific revisions, integrating with
-version control hooks to keep the revision in sync across a team.
+version control hooks to keep those revisions in sync across a team.
 
-* GLOCKFILE - this file lists Go import path and the revision it should be at
+* GLOCKFILE - this file lists a Go import path and the revision it should be at
 * glock - a command line tool for saving and updating dependency versions
 
+Setup
 
-Workflow:
-
-
-Let's say a team works on the shared repository github.com/acme/secret.  To
-manage their dependencies, they could follow this workflow:
+Here is how to get started with Glock.
 
 ```
-# Record the package's transitive dependencies
+# Fetch and install glock
+$ go get github.com/robfig/glock
+
+# Record the package's transitive dependencies, as they currently exist.
 # Glock writes the dependencies to a GLOCKFILE in that package's directory.
-$ glock deps github.com/acme/secret
+$ glock save github.com/acme/project
 
-# All developers install the git hook, that activates
-$ glock install-hook github.com/acme/secret
+# Review and check in the dependencies.
+$ git add src/github.com/acme/project/GLOCKFILE
+$ git commit && git push
 
-# Review the dependencies.
-# Check it in
+# All developers install the git hook
+$ glock install-hook github.com/acme/project
+```
 
-# Developer B wants to install
+Ongoing workflow
+
+After initial setup, here is how the workflow goes:
+
+```
+# Developer wants to add a dependency
+# (Edit code to use dependency)
+$ go get github.com/some/dependency
+$ glock save github.com/acme/project
+$ git commit src/github.com/acme/project/GLOCKFILE && git push
+```
+
+Other developers will have their dependencies added and updated automatically,
+when the git hook notices a change to the GLOCKFILE.

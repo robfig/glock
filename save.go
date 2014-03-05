@@ -25,6 +25,7 @@ func init() {
 }
 
 func runSave(cmd *Command, args []string) {
+	// TODO: Ensure dependencies of tests are also included
 	var output, err = exec.Command("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, args[0]).
 		CombinedOutput()
 	if err != nil {
@@ -45,15 +46,19 @@ func runSave(cmd *Command, args []string) {
 		deps[pkg] = struct{}{}
 	}
 
-	// TODO: consolidate different packages from the same repo
-	for importPath := range deps {
+	// Convert from packages to repo roots.
+	var depRoots = map[string]*repoRoot{}
+	for importPath, _ := range deps {
 		var repoRoot, err = repoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
 		}
+		depRoots[repoRoot.root] = repoRoot
+	}
+
+	for importPath, repoRoot := range depRoots {
 		// TODO: Work with multi-element gopaths
-		var vcs = repoRoot.vcs
-		revision, err := vcs.head(
+		revision, err := repoRoot.vcs.head(
 			path.Join(build.Default.GOPATH, "src", repoRoot.root),
 			repoRoot.repo)
 		if err != nil {
