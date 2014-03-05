@@ -26,30 +26,9 @@ func init() {
 }
 
 func runSave(cmd *Command, args []string) {
-	// TODO: Ensure dependencies of tests are also included
-	var output, err = exec.Command("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, args[0]).
-		CombinedOutput()
-	if err != nil {
-		perror(err)
-	}
-
-	var scanner = bufio.NewScanner(bytes.NewReader(output))
-	var deps = map[string]struct{}{}
-	for scanner.Scan() {
-		var (
-			pkg    = scanner.Text()
-			slash  = strings.Index(pkg, "/")
-			stdLib = slash == -1 || strings.Index(pkg[:slash], ".") == -1
-		)
-		if stdLib {
-			continue
-		}
-		deps[pkg] = struct{}{}
-	}
-
 	// Convert from packages to repo roots.
 	var depRoots = map[string]*repoRoot{}
-	for importPath, _ := range deps {
+	for _, importPath := range getAllDeps(args[0]) {
 		var repoRoot, err = repoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
@@ -68,6 +47,81 @@ func runSave(cmd *Command, args []string) {
 		revision = strings.TrimSpace(revision)
 		fmt.Println(importPath, revision)
 	}
+}
+
+// getAllDeps returns a slice of package import paths for all dependencies
+// (including test dependencies) of the given package selector.
+func getAllDeps(selector string) []string {
+	// Get a set of transitive dependencies (package import paths) for the
+	// specified package.
+	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, selector)
+	var deps = filterPackages(output, nil) // filter out standard library
+
+	// List dependencies of test files, which are not included in the go list .Deps
+	// Also, ignore any dependencies that are already covered.
+	var testImportOutput = run("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`, selector)
+	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out standard library and existing deps
+	for dep := range testImmediateDeps {
+		deps[dep] = struct{}{}
+	}
+
+	// We have to get the transitive deps of the remaining test imports.
+	// NOTE: this will return the dependencies of the libraries imported by tests
+	// and not imported by main code.  This output does not include the imports themselves.
+	var testDepOutput = run("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
+	var allTestDeps = filterPackages(testDepOutput, deps) // filter out standard library and existing deps
+	for dep := range allTestDeps {
+		deps[dep] = struct{}{}
+	}
+
+	// Return everything in deps
+	var result []string
+	for dep := range deps {
+		result = append(result, dep)
+	}
+	return result
+}
+
+// run is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
+// error message and exits on failure.
+func run(name string, args ...string) []byte {
+	var output, err = exec.Command(name, args...).
+		CombinedOutput()
+	if err != nil {
+		perror(fmt.Errorf("%v %v\n%v\nError: %v", name, args, string(output), err))
+	}
+	return output
+}
+
+func setToSlice(set map[string]struct{}) []string {
+	var slice []string
+	for k := range set {
+		slice = append(slice, k)
+	}
+	return slice
+}
+
+// filterPackages accepts the output of a go list comment (one package per line)
+// and returns a set of package import paths, excluding standard library.
+// Additionally, any packages present in the "exclude" set will be excluded.
+func filterPackages(output []byte, exclude map[string]struct{}) map[string]struct{} {
+	var scanner = bufio.NewScanner(bytes.NewReader(output))
+	var deps = map[string]struct{}{}
+	for scanner.Scan() {
+		var (
+			pkg    = scanner.Text()
+			slash  = strings.Index(pkg, "/")
+			stdLib = slash == -1 || strings.Index(pkg[:slash], ".") == -1
+		)
+		if stdLib {
+			continue
+		}
+		if _, ok := exclude[pkg]; ok {
+			continue
+		}
+		deps[pkg] = struct{}{}
+	}
+	return deps
 }
 
 // Keep edits to vcs.go separate from the stock version.

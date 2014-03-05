@@ -83,7 +83,7 @@ func printUsage(w io.Writer) {
 }
 
 func perror(err error) {
-	fmt.Fprint(os.Stderr, err)
+	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
 }
 
