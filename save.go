@@ -26,15 +26,29 @@ func init() {
 }
 
 func runSave(cmd *Command, args []string) {
+	var importPath = args[0]
+
+	// Validate that we got an import path that is the base of a repo.
+	var repo, err = repoRootForImportPath(importPath)
+	if err != nil {
+		perror(err)
+	}
+	if repo.root != importPath {
+		perror(fmt.Errorf("%v must be the base of a repo", importPath))
+	}
+
 	// Convert from packages to repo roots.
 	var depRoots = map[string]*repoRoot{}
-	for _, importPath := range getAllDeps(args[0]) {
+	for _, importPath := range getAllDeps(importPath) {
 		var repoRoot, err = repoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
 		}
 		depRoots[repoRoot.root] = repoRoot
 	}
+
+	// Remove any dependencies to packages within the target repo
+	delete(depRoots, importPath)
 
 	for importPath, repoRoot := range depRoots {
 		// TODO: Work with multi-element gopaths
@@ -54,16 +68,16 @@ var printDep = func(importPath, revision string) {
 }
 
 // getAllDeps returns a slice of package import paths for all dependencies
-// (including test dependencies) of the given package selector.
-func getAllDeps(selector string) []string {
+// (including test dependencies) of the given package.
+func getAllDeps(importPath string) []string {
 	// Get a set of transitive dependencies (package import paths) for the
 	// specified package.
-	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, selector)
+	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, importPath)
 	var deps = filterPackages(output, nil) // filter out standard library
 
 	// List dependencies of test files, which are not included in the go list .Deps
 	// Also, ignore any dependencies that are already covered.
-	var testImportOutput = run("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`, selector)
+	var testImportOutput = run("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`, importPath)
 	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out standard library and existing deps
 	for dep := range testImmediateDeps {
 		deps[dep] = struct{}{}

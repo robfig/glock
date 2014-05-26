@@ -118,20 +118,19 @@ var saveTests = []saveTest{
 		},
 	},
 
-	// FAILS
-	// {
-	// 	"sub-packages of self",
-	// 	[]pkg{{
-	// 		"github.com/test/p1",
-	// 		[]file{
-	// 			{"foo.go", []string{"github.com/test/p1/p2"}},
-	// 			{"foo_test.go", []string{"github.com/test/p1/p3"}},
-	// 			{"p2/foo.go", []string{"os"}},
-	// 			{"p3/foo.go", []string{"os"}},
-	// 		}},
-	// 	},
-	// 	[]string{},
-	// },
+	{
+		"sub-packages of self",
+		[]pkg{{
+			"github.com/test/p1",
+			[]file{
+				{"foo.go", []string{"github.com/test/p1/p2"}},
+				{"foo_test.go", []string{"github.com/test/p1/p3"}},
+				{"p2/foo.go", []string{"os"}},
+				{"p3/foo.go", []string{"os"}},
+			}},
+		},
+		[]string{},
+	},
 
 	{
 		"sub-packages",
