@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"go/build"
+	"os"
 	"os/exec"
 	"path"
 	"regexp"
@@ -39,14 +39,18 @@ func runSave(cmd *Command, args []string) {
 	for importPath, repoRoot := range depRoots {
 		// TODO: Work with multi-element gopaths
 		revision, err := repoRoot.vcs.head(
-			path.Join(build.Default.GOPATH, "src", repoRoot.root),
+			path.Join(os.Getenv("GOPATH"), "src", repoRoot.root),
 			repoRoot.repo)
 		if err != nil {
 			perror(err)
 		}
 		revision = strings.TrimSpace(revision)
-		fmt.Println(importPath, revision)
+		printDep(importPath, revision)
 	}
+}
+
+var printDep = func(importPath, revision string) {
+	fmt.Println(importPath, revision)
 }
 
 // getAllDeps returns a slice of package import paths for all dependencies
@@ -85,8 +89,9 @@ func getAllDeps(selector string) []string {
 // run is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
 // error message and exits on failure.
 func run(name string, args ...string) []byte {
-	var output, err = exec.Command(name, args...).
-		CombinedOutput()
+	var cmd = exec.Command(name, args...)
+	cmd.Env = []string{"GOPATH=" + os.Getenv("GOPATH")}
+	var output, err = cmd.CombinedOutput()
 	if err != nil {
 		perror(fmt.Errorf("%v %v\n%v\nError: %v", name, args, string(output), err))
 	}
