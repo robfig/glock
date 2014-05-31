@@ -2,14 +2,10 @@ package main
 
 import (
 	"bufio"
-	"fmt"
-	"go/build"
+
 	"io"
-	"os"
-	"os/exec"
-	"path"
+
 	"regexp"
-	"strings"
 )
 
 // diff represents a line of difference in a commit.
@@ -95,53 +91,6 @@ func buildCommands(diffs []diff) []command {
 		cmds = append(cmds, newAddOrRemove(this))
 	}
 	return cmds
-}
-
-func main2() {
-	var gopath = build.Default.SplitPathList(build.Default.GOPATH)[0]
-	var cmds = buildCommands(readDiffLines(os.Stdin))
-	for _, cmd := range cmds {
-		var importDir = path.Join(gopath, "src", cmd.importPath)
-		switch cmd.action {
-		case remove:
-			fmt.Println(cmd.importPath, "is no longer in use.  Delete? [Y/n]")
-			var answer string
-			fmt.Scanln(&answer)
-			if answer == "" || answer == "y" || answer == "Y" {
-				os.RemoveAll(importDir)
-			}
-		case add:
-			exec.Command("go", "get", cmd.importPath).Wait()
-			fallthrough
-		case update:
-			os.Chdir(importDir)
-			var firstSlash = strings.Index(cmd.importPath, "/")
-			if firstSlash == -1 {
-				fmt.Println("Failed to parse import path")
-				continue
-			}
-			var output []byte
-			var err error
-			var vcs []string
-			switch cmd.importPath[:firstSlash] {
-			case "github.com":
-				vcs = []string{"git", "reset", "--hard", cmd.revision}
-			case "code.google.com", "bitbucket.org":
-				vcs = []string{"hg", "update", "-f", cmd.revision}
-			case "launchpad.net":
-				vcs = []string{"bzr", "update", "-r", cmd.revision}
-			default:
-				fmt.Println("Not sure which VCS to use for:", cmd.importPath)
-				continue
-			}
-
-			output, err = exec.Command(vcs[0], vcs[1:]...).CombinedOutput()
-			fmt.Println(string(output))
-			if err != nil {
-				fmt.Println("Error:", err)
-			}
-		}
-	}
 }
 
 func newUpdate(a, b diff) command {

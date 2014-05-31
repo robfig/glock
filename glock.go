@@ -9,6 +9,8 @@ import (
 	"text/template"
 )
 
+var buildV bool // Used in vcs.go and http.go to print detailed stuff about go get
+
 type Command struct {
 	Run       func(cmd *Command, args []string)
 	UsageLine string
@@ -43,9 +45,11 @@ func (c *Command) Runnable() bool {
 // The order here is the order in which they are printed by 'go help'.
 var commands = []*Command{
 	cmdSave,
+	cmdApply,
 }
 
 func main() {
+	flag.BoolVar(&buildV, "v", false, "Verbose")
 	flag.Usage = usage
 	flag.Parse()
 
