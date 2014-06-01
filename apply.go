@@ -11,7 +11,10 @@ import (
 var cmdApply = &Command{
 	UsageLine: "apply",
 	Short:     "apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.",
-	Long:      `TODO`,
+	Long: `apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.
+
+It is meant to be called from a VCS hook on any change to the GLOCKFILE.
+`,
 }
 
 func init() {
@@ -33,12 +36,14 @@ func runApply(cmd *Command, args []string) {
 				continue
 			}
 
+			fmt.Println("download", cmd.importPath)
 			err = repo.vcs.download(importDir)
 			if err != nil {
 				fmt.Println("error downloading", cmd.importPath, "to", importDir, "-", err)
 				continue
 			}
 
+			fmt.Println("update", cmd.importPath, "to", cmd.revision)
 			err = repo.vcs.tagSync(importDir, cmd.revision)
 			if err != nil {
 				fmt.Println("error syncing", cmd.importPath, "to", cmd.revision, "-", err)

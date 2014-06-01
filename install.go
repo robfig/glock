@@ -9,7 +9,10 @@ import (
 var cmdInstall = &Command{
 	UsageLine: "install [import path]",
 	Short:     "add a post-merge hook that applies GLOCKFILE changes after each pull.",
-	Long:      `TODO`,
+	Long: `Install adds a glock hook to the given package's repository
+
+When pulling new commits, it checks whether the GLOCKFILE has been updated. If so,
+it calls "glock apply", passing in the diff.`,
 }
 
 func init() {

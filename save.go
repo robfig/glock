@@ -14,9 +14,17 @@ import (
 )
 
 var cmdSave = &Command{
-	UsageLine: "save [package]",
+	UsageLine: "save [import path]",
 	Short:     "save a GLOCKFILE for the given package's dependencies",
-	Long:      `TODO`,
+	Long: `save is used to record the current revisions of a package's dependencies
+
+It writes this state to a file in the root of the package called "GLOCKFILE".
+
+Options:
+
+	-n	print to stdout instead of writing to file.
+
+`,
 }
 
 var saveN = cmdSave.Flag.Bool("n", false, "Don't save the file, just print to stdout")
