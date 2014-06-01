@@ -226,17 +226,8 @@ import (
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	var savedPrintDep = printDep
-	defer func() {
-		printDep = savedPrintDep
-	}()
-
 	var buf bytes.Buffer
-	printDep = func(importPath, revision string) {
-		fmt.Fprintln(&buf, importPath, revision)
-	}
-
-	runSave(nil, []string{test.pkgs[0].importPath})
+	outputDeps(&buf, calcDepRoots(test.pkgs[0].importPath))
 
 	// See if we got all the expected packages
 	var output = buf.String()

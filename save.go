@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -29,7 +31,43 @@ func runSave(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
+	var depRoots = calcDepRoots(importPath)
 
+	// Figure out where output should go
+	var output io.Writer = os.Stdout
+	if !*saveN {
+		var glockFilename = path.Join(os.Getenv("GOPATH"), "src", importPath, "GLOCKFILE")
+		var f, err = os.Create(glockFilename)
+		if err != nil {
+			perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
+		}
+		defer f.Close()
+		output = f
+	}
+
+	outputDeps(output, depRoots)
+}
+
+func outputDeps(w io.Writer, depRoots []*repoRoot) {
+	for _, repoRoot := range depRoots {
+		// TODO: Work with multi-element gopaths
+		revision, err := repoRoot.vcs.head(
+			path.Join(os.Getenv("GOPATH"), "src", repoRoot.root),
+			repoRoot.repo)
+		if err != nil {
+			perror(err)
+		}
+		revision = strings.TrimSpace(revision)
+		fmt.Fprintln(w, repoRoot.root, revision)
+	}
+}
+
+// calcDepRoots discovers all dependencies of the given importPath and returns
+// them as a list of the repo roots that cover all dependent packages. for
+// example, github.com/robfig/soy and github.com/robfig/soy/data are two
+// dependent packages but only one repo. the returned repos are ordered
+// alphabetically by import path.
+func calcDepRoots(importPath string) []*repoRoot {
 	// Validate that we got an import path that is the base of a repo.
 	var repo, err = repoRootForImportPath(importPath)
 	if err != nil {
@@ -52,22 +90,19 @@ func runSave(cmd *Command, args []string) {
 	// Remove any dependencies to packages within the target repo
 	delete(depRoots, importPath)
 
-	for importPath, repoRoot := range depRoots {
-		// TODO: Work with multi-element gopaths
-		revision, err := repoRoot.vcs.head(
-			path.Join(os.Getenv("GOPATH"), "src", repoRoot.root),
-			repoRoot.repo)
-		if err != nil {
-			perror(err)
-		}
-		revision = strings.TrimSpace(revision)
-		printDep(importPath, revision)
+	var repos []*repoRoot
+	for _, repo := range depRoots {
+		repos = append(repos, repo)
 	}
+	sort.Sort(byImportPath(repos))
+	return repos
 }
 
-var printDep = func(importPath, revision string) {
-	fmt.Println(importPath, revision)
-}
+type byImportPath []*repoRoot
+
+func (p byImportPath) Len() int           { return len(p) }
+func (p byImportPath) Less(i, j int) bool { return p[i].root < p[j].root }
+func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given package.
