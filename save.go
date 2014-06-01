@@ -42,7 +42,6 @@ func runSave(cmd *Command, args []string) {
 	// Convert from packages to repo roots.
 	var depRoots = map[string]*repoRoot{}
 	for _, importPath := range getAllDeps(importPath) {
-		fmt.Println("repo root for", importPath)
 		var repoRoot, err = repoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
@@ -54,7 +53,6 @@ func runSave(cmd *Command, args []string) {
 	delete(depRoots, importPath)
 
 	for importPath, repoRoot := range depRoots {
-		fmt.Println("head", repoRoot.root)
 		// TODO: Work with multi-element gopaths
 		revision, err := repoRoot.vcs.head(
 			path.Join(os.Getenv("GOPATH"), "src", repoRoot.root),
@@ -107,7 +105,9 @@ func getAllDeps(importPath string) []string {
 // run is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
 // error message and exits on failure.
 func run(name string, args ...string) []byte {
-	fmt.Println("Run:", name, args)
+	if buildV {
+		fmt.Println(name, args)
+	}
 	var cmd = exec.Command(name, args...)
 	cmd.Env = []string{"GOPATH=" + os.Getenv("GOPATH")}
 	var output, err = cmd.CombinedOutput()

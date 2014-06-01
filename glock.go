@@ -46,6 +46,8 @@ func (c *Command) Runnable() bool {
 var commands = []*Command{
 	cmdSave,
 	cmdApply,
+	cmdInstall,
+	cmdSync,
 }
 
 func main() {

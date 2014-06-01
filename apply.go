@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/build"
 	"os"
-
 	"path"
 	"path/filepath"
 )
