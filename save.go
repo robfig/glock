@@ -131,10 +131,12 @@ func getAllDeps(importPath string) []string {
 	// We have to get the transitive deps of the remaining test imports.
 	// NOTE: this will return the dependencies of the libraries imported by tests
 	// and not imported by main code.  This output does not include the imports themselves.
-	var testDepOutput = run("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
-	var allTestDeps = filterPackages(testDepOutput, deps) // filter out standard library and existing deps
-	for dep := range allTestDeps {
-		deps[dep] = struct{}{}
+	if len(testImmediateDeps) > 0 {
+		var testDepOutput = run("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
+		var allTestDeps = filterPackages(testDepOutput, deps) // filter out standard library and existing deps
+		for dep := range allTestDeps {
+			deps[dep] = struct{}{}
+		}
 	}
 
 	// Return everything in deps
