@@ -77,18 +77,18 @@ func outputDeps(w io.Writer, depRoots []*repoRoot) {
 // alphabetically by import path.
 func calcDepRoots(importPath string) []*repoRoot {
 	// Validate that we got an import path that is the base of a repo.
-	var repo, err = repoRootForImportPath(importPath)
+	var repo, err = glockRepoRootForImportPath(importPath)
 	if err != nil {
 		perror(err)
 	}
 	if repo.root != importPath {
-		perror(fmt.Errorf("%v must be the base of a repo", importPath))
+		perror(fmt.Errorf("%v must be the base of a repo (root is %q)", importPath, repo.root))
 	}
 
 	// Convert from packages to repo roots.
 	var depRoots = map[string]*repoRoot{}
 	for _, importPath := range getAllDeps(importPath) {
-		var repoRoot, err = repoRootForImportPath(importPath)
+		var repoRoot, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
 		}

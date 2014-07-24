@@ -40,7 +40,7 @@ func runInstall(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
-	var repo, err = repoRootForImportPath(importPath)
+	var repo, err = glockRepoRootForImportPath(importPath)
 	if err != nil {
 		perror(err)
 	}
