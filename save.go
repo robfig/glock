@@ -117,7 +117,8 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func getAllDeps(importPath string) []string {
 	// Get a set of transitive dependencies (package import paths) for the
 	// specified package.
-	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`, importPath)
+	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`,
+		path.Join(importPath, "..."))
 	var deps = filterPackages(output, nil) // filter out standard library
 
 	// List dependencies of test files, which are not included in the go list .Deps
