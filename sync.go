@@ -50,10 +50,16 @@ func runSync(cmd *Command, args []string) {
 	for scanner.Scan() {
 		var fields = strings.Fields(scanner.Text())
 		var importPath, expectedRevision = fields[0], fields[1]
+		var importDir = filepath.Join(gopath, "src", importPath)
+
+		// Try to find the repo.  If it doesn't exist, get it.
 		var repo, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
-			fmt.Println("error determining repo root for", importPath, err)
-			continue
+			run("go", "get", importPath)
+			repo, err = glockRepoRootForImportPath(importPath)
+		}
+		if err != nil {
+			perror(err)
 		}
 
 		actualRevision, err := repo.vcs.head(filepath.Join(gopath, "src", repo.root), repo.repo)
@@ -69,7 +75,6 @@ func runSync(cmd *Command, args []string) {
 		}
 
 		fmt.Println("[" + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
-		var importDir = filepath.Join(gopath, "src", importPath)
 		err = repo.vcs.download(importDir)
 		if err != nil {
 			perror(err)
