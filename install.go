@@ -25,7 +25,6 @@ set -e
 
 LOG=$(git log -U0 --oneline -p ORIG_HEAD..HEAD GLOCKFILE)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
-# TODO: Test if glock is on path.  If not, go get it.
 glock apply <<< "$LOG"
 `
 
