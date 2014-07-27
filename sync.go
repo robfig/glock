@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/agtorre/gocolorize"
 )
 
 var cmdSync = &Command{
@@ -33,7 +35,7 @@ func runSync(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
-	var repo, err = repoRootForImportPath(importPath)
+	var repo, err = glockRepoRootForImportPath(importPath)
 	if err != nil {
 		perror(err)
 	}
@@ -48,7 +50,7 @@ func runSync(cmd *Command, args []string) {
 	for scanner.Scan() {
 		var fields = strings.Fields(scanner.Text())
 		var importPath, expectedRevision = fields[0], fields[1]
-		var repo, err = repoRootForImportPath(importPath)
+		var repo, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			fmt.Println("error determining repo root for", importPath, err)
 			continue
@@ -59,22 +61,29 @@ func runSync(cmd *Command, args []string) {
 			fmt.Println("error determining revision of", repo.root, err)
 			continue
 		}
+		actualRevision = strings.TrimSpace(actualRevision)
+		fmt.Printf("%-50.49s %-12.12s\t", importPath, actualRevision)
 		if expectedRevision == actualRevision {
-			fmt.Println(importPath, "at", expectedRevision)
+			fmt.Print("[", info("OK"), "]\n")
 			continue
 		}
 
-		fmt.Println("updating", importPath, "from", actualRevision, "to", expectedRevision)
+		fmt.Println("[" + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
 		var importDir = filepath.Join(gopath, "src", importPath)
 		err = repo.vcs.download(importDir)
 		if err != nil {
-			fmt.Println("error downloading", importPath, "to", importDir, "-", err)
-			continue
+			perror(err)
 		}
+
 		err = repo.vcs.tagSync(importDir, expectedRevision)
 		if err != nil {
-			fmt.Println("error syncing", importPath, "to", expectedRevision, "-", err)
-			continue
+			perror(err)
 		}
 	}
 }
+
+var (
+	info     = gocolorize.NewColor("green").Paint
+	warning  = gocolorize.NewColor("yellow").Paint
+	critical = gocolorize.NewColor("red").Paint
+)
