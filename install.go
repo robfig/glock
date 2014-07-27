@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go/build"
 	"os"
 	"path/filepath"
 )
@@ -48,7 +49,13 @@ func runInstall(cmd *Command, args []string) {
 	if !ok {
 		perror(fmt.Errorf("%s hook not implemented", repo.vcs.name))
 	}
-	var filename = filepath.Join(repo.root, hook.filename)
+
+	pkg, err := build.Import(repo.root, "", build.FindOnly)
+	if err != nil {
+		perror(fmt.Errorf("Failed to import %v: %v", repo.root, err))
+	}
+
+	var filename = filepath.Join(pkg.Dir, hook.filename)
 	f, err := os.Create(filename)
 	if err != nil {
 		perror(err)
