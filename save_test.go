@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go/build"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -223,8 +224,13 @@ import (
 	}
 
 	// Temporarily set the GOPATH and dep printing function.
-	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
+	var oldGOPATH = build.Default.GOPATH
+	defer func() {
+		os.Setenv("GOPATH", oldGOPATH)
+		build.Default.GOPATH = oldGOPATH
+	}()
 	os.Setenv("GOPATH", gopath)
+	build.Default.GOPATH = gopath
 
 	var buf bytes.Buffer
 	outputDeps(&buf, calcDepRoots(test.pkgs[0].importPath))

@@ -87,10 +87,10 @@ func calcDepRoots(importPath string) []*repoRoot {
 	}
 
 	// Convert from packages to repo roots.
+	var attempts = 1
 GetAllDeps:
 	var depRoots = map[string]*repoRoot{}
 	var missingPackages []string
-	var attempts = 1
 	for _, importPath := range getAllDeps(importPath) {
 		var repoRoot, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
@@ -113,6 +113,7 @@ GetAllDeps:
 		}
 		fmt.Fprintln(os.Stderr, "go", "get", strings.Join(missingPackages, " "))
 		run("go", append([]string{"get"}, missingPackages...)...)
+		attempts++
 		goto GetAllDeps
 	}
 
