@@ -117,13 +117,13 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func getAllDeps(importPath string) []string {
 	// Get a set of transitive dependencies (package import paths) for the
 	// specified package.
-	var output = run("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`,
+	var output = mustRun("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`,
 		path.Join(importPath, "..."))
 	var deps = filterPackages(output, nil) // filter out standard library
 
 	// List dependencies of test files, which are not included in the go list .Deps
 	// Also, ignore any dependencies that are already covered.
-	var testImportOutput = run("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`, importPath)
+	var testImportOutput = mustRun("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`, importPath)
 	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out standard library and existing deps
 	for dep := range testImmediateDeps {
 		deps[dep] = struct{}{}
@@ -133,7 +133,7 @@ func getAllDeps(importPath string) []string {
 	// NOTE: this will return the dependencies of the libraries imported by tests
 	// and not imported by main code.  This output does not include the imports themselves.
 	if len(testImmediateDeps) > 0 {
-		var testDepOutput = run("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
+		var testDepOutput = mustRun("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
 		var allTestDeps = filterPackages(testDepOutput, deps) // filter out standard library and existing deps
 		for dep := range allTestDeps {
 			deps[dep] = struct{}{}
@@ -148,15 +148,19 @@ func getAllDeps(importPath string) []string {
 	return result
 }
 
-// run is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
-// error message and exits on failure.
-func run(name string, args ...string) []byte {
+func run(name string, args ...string) ([]byte, error) {
 	if buildV {
 		fmt.Println(name, args)
 	}
 	var cmd = exec.Command(name, args...)
-	cmd.Env = []string{"GOPATH=" + os.Getenv("GOPATH")}
-	var output, err = cmd.CombinedOutput()
+	// cmd.Env = []string{"GOPATH=" + os.Getenv("GOPATH")}
+	return cmd.CombinedOutput()
+}
+
+// mustRun is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
+// error message and exits on failure.
+func mustRun(name string, args ...string) []byte {
+	var output, err = run(name, args...)
 	if err != nil {
 		perror(fmt.Errorf("%v %v\n%v\nError: %v", name, args, string(output), err))
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"go/build"
 	"os"
@@ -49,17 +50,22 @@ func runSync(cmd *Command, args []string) {
 	var scanner = bufio.NewScanner(glockfile)
 	for scanner.Scan() {
 		var fields = strings.Fields(scanner.Text())
-		var importPath, expectedRevision = fields[0], fields[1]
+		var importPath, expectedRevision = fields[0], truncate(fields[1])
 		var importDir = filepath.Join(gopath, "src", importPath)
 
-		// Try to find the repo.  If it doesn't exist, get it.
+		// Try to find the repo.
+		// go get it before hand just in case it doens't exist. (no-op if it does exist)
+		// (ignore failures due to "no buildable files" or build errors in the package.)
+		var getOutput, _ = run("go", "get", "-v", importPath)
 		var repo, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
-			run("go", "get", importPath)
-			repo, err = glockRepoRootForImportPath(importPath)
-		}
-		if err != nil {
+			fmt.Println(string(getOutput)) // in case the get failed due to connection error
 			perror(err)
+		}
+
+		var maybeGot = ""
+		if bytes.Contains(getOutput, []byte("(download)")) {
+			maybeGot = warning("get ")
 		}
 
 		actualRevision, err := repo.vcs.head(filepath.Join(gopath, "src", repo.root), repo.repo)
@@ -67,24 +73,35 @@ func runSync(cmd *Command, args []string) {
 			fmt.Println("error determining revision of", repo.root, err)
 			continue
 		}
-		actualRevision = strings.TrimSpace(actualRevision)
+		actualRevision = truncate(actualRevision)
 		fmt.Printf("%-50.49s %-12.12s\t", importPath, actualRevision)
 		if expectedRevision == actualRevision {
-			fmt.Print("[", info("OK"), "]\n")
+			fmt.Print("[", maybeGot, info("OK"), "]\n")
 			continue
 		}
 
-		fmt.Println("[" + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
+		fmt.Println("[" + maybeGot + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
 		err = repo.vcs.download(importDir)
 		if err != nil {
 			perror(err)
 		}
 
-		err = repo.vcs.tagSync(importDir, expectedRevision)
+		// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
+		// which returns error if the revision does not correspond to a tag or head.
+		err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
 		if err != nil {
 			perror(err)
 		}
 	}
+}
+
+// truncate a revision to the 12-digit prefix.
+func truncate(rev string) string {
+	rev = strings.TrimSpace(rev)
+	if len(rev) > 12 {
+		return rev[:12]
+	}
+	return rev
 }
 
 var (
