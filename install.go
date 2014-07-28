@@ -25,6 +25,7 @@ set -e
 
 LOG=$(git log -U0 --oneline -p ORIG_HEAD..HEAD GLOCKFILE)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
+echo "glock: applying updates..."
 glock apply <<< "$LOG"
 `
 
