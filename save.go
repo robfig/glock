@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	"os/exec"
@@ -86,13 +87,33 @@ func calcDepRoots(importPath string) []*repoRoot {
 	}
 
 	// Convert from packages to repo roots.
+GetAllDeps:
 	var depRoots = map[string]*repoRoot{}
+	var missingPackages []string
+	var attempts = 1
 	for _, importPath := range getAllDeps(importPath) {
 		var repoRoot, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
 		}
+
+		// Ensure we have the package locally. if not, we don't have all the possible deps.
+		_, err = build.Import(repoRoot.root, "", build.FindOnly)
+		if err != nil {
+			missingPackages = append(missingPackages, repoRoot.root)
+		}
+
 		depRoots[repoRoot.root] = repoRoot
+	}
+
+	// If there were missing packages, try again.
+	if len(missingPackages) > 0 {
+		if attempts > 3 {
+			perror(fmt.Errorf("failed to fetch missing packages: %v", missingPackages))
+		}
+		fmt.Fprintln(os.Stderr, "go", "get", strings.Join(missingPackages, " "))
+		run("go", append([]string{"get"}, missingPackages...)...)
+		goto GetAllDeps
 	}
 
 	// Remove any dependencies to packages within the target repo
