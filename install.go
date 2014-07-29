@@ -56,7 +56,7 @@ func runInstall(cmd *Command, args []string) {
 	}
 
 	var filename = filepath.Join(pkg.Dir, hook.filename)
-	f, err := os.Create(filename)
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		perror(err)
 	}
