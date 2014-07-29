@@ -47,11 +47,32 @@ added and updated automatically as the GLOCKFILE changes.
 
 ```
 # Developer wants to add a dependency
-$ go get github.com/some/dependency
+$ go get -u github.com/some/dependency
 $ glock save github.com/acme/project
 $ git commit src/github.com/acme/project/GLOCKFILE
 $ git push
 ```
 
-The dependency update will be propagated to all team members as they pull that
+"go get -u" will download the latest revision of that library and update to it.  "glock save" records the current state of dependencies in your GOPATH, which should reflect the new or updated revision.
+
+You can use the same process to update all dependencies to the latest revision:
+```
+$ cd $GOPATH/src
+$ go get -u -v ./...
+$ glock save github.com/acme/project
+...
+```
+
+In any case, the dependency update will be propagated to all team members as they pull that
 revision.
+
+## Continuous Integration
+
+It may also be useful to verify that all dependencies are recorded as part of your continuous build.  A simple diff works:
+
+```
+$ diff <(glock save -n github.com/acme/project) <(cat github.com/acme/project/GLOCKFILE)
+```
+
+That will return success (0) if there were no differences between the current project dependencies and what is recorded in the GLOCKFILE, or it will exit with an error (1) and print the differences.
+
