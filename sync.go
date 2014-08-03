@@ -93,6 +93,10 @@ func runSync(cmd *Command, args []string) {
 			perror(err)
 		}
 	}
+
+	if scanner.Err() != nil {
+		perror(scanner.Err())
+	}
 }
 
 // truncate a revision to the 12-digit prefix.
