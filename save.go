@@ -224,7 +224,7 @@ func filterPackages(output []byte, exclude map[string]struct{}) map[string]struc
 // Keep edits to vcs.go separate from the stock version.
 
 var headCmds = map[string]string{
-	"git": "rev-parse head",  // 2bebebd91805dbb931317f7a4057e4e8de9d9781
+	"git": "rev-parse HEAD",  // 2bebebd91805dbb931317f7a4057e4e8de9d9781
 	"hg":  "id",              // 19114a3ee7d5 tip
 	"bzr": "log -r-1 --line", // 50: Dimiter Naydenov 2014-02-12 [merge] ec2: Added (Un)AssignPrivateIPAddresses APIs
 }
