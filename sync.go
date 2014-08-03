@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"go/build"
 	"os"
@@ -26,6 +27,16 @@ If a dependency is not at the expected revision, it is re-downloaded and synced.
 `,
 }
 
+var (
+	color = flag.Bool("color", true, "if true, colorize terminal output")
+
+	info     = gocolorize.NewColor("green").Paint
+	warning  = gocolorize.NewColor("yellow").Paint
+	critical = gocolorize.NewColor("red").Paint
+
+	disabled = func(args ...interface{}) string { return fmt.Sprint(args...) }
+)
+
 func init() {
 	cmdSync.Run = runSync // break init loop
 }
@@ -34,6 +45,11 @@ func runSync(cmd *Command, args []string) {
 	if len(args) == 0 {
 		cmdSync.Usage()
 		return
+	}
+	if !*color {
+		info = disabled
+		warning = disabled
+		critical = disabled
 	}
 	var importPath = args[0]
 	var repo, err = glockRepoRootForImportPath(importPath)
@@ -107,9 +123,3 @@ func truncate(rev string) string {
 	}
 	return rev
 }
-
-var (
-	info     = gocolorize.NewColor("green").Paint
-	warning  = gocolorize.NewColor("yellow").Paint
-	critical = gocolorize.NewColor("red").Paint
-)
