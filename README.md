@@ -13,10 +13,12 @@ Glock is similar to "godep -copy=false"
 
 GLOCKFILEs are simple text files that record a root package's version, e.g.
 
- bitbucket.org/tebeka/selenium 02df1758050f
- code.google.com/p/cascadia 4f03c71bc42b
- code.google.com/p/go-uuid 7dda39b2e7d5
- ...
+```
+bitbucket.org/tebeka/selenium 02df1758050f
+code.google.com/p/cascadia 4f03c71bc42b
+code.google.com/p/go-uuid 7dda39b2e7d5
+...
+```
  
 [1] "repo root" refers to the base package in a repository.  For example, although code.google.com/p/go.net/websocket is a Go package, code.google.com/p/go.net is the "repo root", and any dependencies on non-root packages roll up to the root.
 
