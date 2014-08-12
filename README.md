@@ -1,6 +1,8 @@
 GLock is a command-line tool to lock dependencies to specific revisions, using a
 version control hook to keep those revisions in sync across a team.
 
+## Overview
+
 GLock provides 2 commands and a version control hook:
 
 * "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a GLOCKFILE
