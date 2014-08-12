@@ -11,7 +11,7 @@ GLock provides 2 commands and a version control hook:
 
 Glock is similar to "godep -copy=false"
 
-GLOCKFILEs are simple text files that record a root package's version, e.g.
+GLOCKFILEs are simple text files that record a repo roots's revision, e.g.
 
 ```
 bitbucket.org/tebeka/selenium 02df1758050f
