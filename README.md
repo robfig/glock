@@ -1,15 +1,24 @@
 GLock is a command-line tool to lock dependencies to specific revisions, using a
 version control hook to keep those revisions in sync across a team.
 
-The process works as follows:
+GLock provides 2 commands and a version control hook:
 
-* "glock save" a list of current dependencies and their revisions to a GLOCKFILE
-* "glock install" the git hook
-* As other developers update dependencies, the hook applies those changes
-  automatically.
+* "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a GLOCKFILE
+* "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version. 
+* "glock install project" installs a version control hook that watches for changes to project/GLOCKFILE and incrementally applies them.
 
-This approach is easy on developers and avoids repository bloat from third-party
-dependencies.
+Glock is similar to "godep -copy=false"
+
+GLOCKFILEs are simple text files that record a root package's version, e.g.
+
+ bitbucket.org/tebeka/selenium 02df1758050f
+ code.google.com/p/cascadia 4f03c71bc42b
+ code.google.com/p/go-uuid 7dda39b2e7d5
+ ...
+ 
+[1] "repo root" refers to the base package in a repository.  For example, although code.google.com/p/go.net/websocket is a Go package, code.google.com/p/go.net is the "repo root", and any dependencies on non-root packages roll up to the root.
+
+## Use case
 
 It is meant to serve a team that:
 
@@ -17,6 +26,11 @@ It is meant to serve a team that:
 * uses a single dedicated GOPATH for development
 * wants all applications within the codebase to use one version of any dependency.
 
+For example, at work we keep our Go code in one repo (rather than many small ones) and use a single GOPATH.  This tool allows us to gain reproducible builds, with version updates automatically propagated to the team via the hook, with the following advantages:
+
+* We still use the normal Go toolchain / dev process (e.g. not having to run everything in a godep sandbox).  We can more easily contribute to 3rd party libraries, since they are not in a vendor sandbox or have rewritten import paths.
+* We avoid the repo bloat of checking in our dependencies (> 100 MB), in addition to the extra churn.  Updating a dependency involves a change to one line of a text file instead of thousand-line diffs.
+* Much easier and less error-prone than manually checking in dependencies.  Developers don't have to fight git because git wants to make the project a submodule instead of just checking in the files.  Running glock on your CI server or as a pre-commit hook can ensure that any new dependencies have been recorded.
 
 ## Setup
 
