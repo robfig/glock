@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"go/build"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 )
 
@@ -20,10 +20,14 @@ func init() {
 	cmdInstall.Run = runInstall // break init loop
 }
 
-const gitPostMergeHook = `#!/bin/bash
+const gitHook = `#!/bin/bash
 set -e
 
-LOG=$(git log -U0 --oneline -p ORIG_HEAD..HEAD GLOCKFILE)
+if [[ $GIT_REFLOG_ACTION != pull* ]]; then
+        exit 0
+fi
+
+LOG=$(git log -U0 --oneline -p HEAD@{1}..HEAD GLOCKFILE)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
 echo "glock: applying updates..."
 glock apply <<< "$LOG"
@@ -31,8 +35,11 @@ glock apply <<< "$LOG"
 
 type hook struct{ filename, content string }
 
-var vcsHooks = map[*vcsCmd]hook{
-	vcsGit: {filepath.Join(".git", "hooks", "post-merge"), gitPostMergeHook},
+var vcsHooks = map[*vcsCmd][]hook{
+	vcsGit: {
+		{filepath.Join(".git", "hooks", "post-merge"), gitHook},    // git pull
+		{filepath.Join(".git", "hooks", "post-checkout"), gitHook}, // git pull --rebase
+	},
 }
 
 func runInstall(cmd *Command, args []string) {
@@ -45,7 +52,7 @@ func runInstall(cmd *Command, args []string) {
 	if err != nil {
 		perror(err)
 	}
-	var hook, ok = vcsHooks[repo.vcs]
+	var hooks, ok = vcsHooks[repo.vcs]
 	if !ok {
 		perror(fmt.Errorf("%s hook not implemented", repo.vcs.name))
 	}
@@ -55,12 +62,12 @@ func runInstall(cmd *Command, args []string) {
 		perror(fmt.Errorf("Failed to import %v: %v", repo.root, err))
 	}
 
-	var filename = filepath.Join(pkg.Dir, hook.filename)
-	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		perror(err)
+	for _, hook := range hooks {
+		var filename = filepath.Join(pkg.Dir, hook.filename)
+		var err = ioutil.WriteFile(filename, []byte(hook.content), 0755)
+		if err != nil {
+			perror(err)
+		}
+		fmt.Println("Installed", filename)
 	}
-	f.Write([]byte(hook.content))
-	f.Close()
-	fmt.Println("Installed", filename)
 }
