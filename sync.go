@@ -70,9 +70,9 @@ func runSync(cmd *Command, args []string) {
 		var importDir = filepath.Join(gopath, "src", importPath)
 
 		// Try to find the repo.
-		// go get it before hand just in case it doens't exist. (no-op if it does exist)
+		// go get it before hand just in case it doesn't exist. (no-op if it does exist)
 		// (ignore failures due to "no buildable files" or build errors in the package.)
-		var getOutput, _ = run("go", "get", "-v", importPath)
+		var getOutput, _ = run("go", "get", "-v", "-d", importPath)
 		var repo, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			fmt.Println(string(getOutput)) // in case the get failed due to connection error

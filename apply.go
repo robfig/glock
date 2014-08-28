@@ -38,7 +38,7 @@ func runApply(cmd *Command, args []string) {
 			// do nothing
 		case add, update:
 			// add or update the dependency
-			run("go", "get", "-u", path.Join(cmd.importPath, "..."))
+			run("go", "get", "-u", "-d", path.Join(cmd.importPath, "..."))
 
 			// update that dependency
 			var repo, err = repoRootForImportPath(cmd.importPath)

@@ -6,7 +6,7 @@ version control hook to keep those revisions in sync across a team.
 GLock provides 2 commands and a version control hook:
 
 * "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a GLOCKFILE
-* "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version. 
+* "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version.
 * "glock install project" installs a version control hook that watches for changes to project/GLOCKFILE and incrementally applies them.
 
 Glock is similar to "godep -copy=false"
@@ -19,7 +19,7 @@ code.google.com/p/cascadia 4f03c71bc42b
 code.google.com/p/go-uuid 7dda39b2e7d5
 ...
 ```
- 
+
 [1] "repo root" refers to the base package in a repository.  For example, although code.google.com/p/go.net/websocket is a Go package, code.google.com/p/go.net is the "repo root", and any dependencies on non-root packages roll up to the root.
 
 ## Use case
@@ -93,4 +93,3 @@ $ diff <(glock save -n github.com/acme/project) <(cat github.com/acme/project/GL
 ```
 
 That will return success (0) if there were no differences between the current project dependencies and what is recorded in the GLOCKFILE, or it will exit with an error (1) and print the differences.
-

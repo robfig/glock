@@ -111,8 +111,8 @@ GetAllDeps:
 		if attempts > 3 {
 			perror(fmt.Errorf("failed to fetch missing packages: %v", missingPackages))
 		}
-		fmt.Fprintln(os.Stderr, "go", "get", strings.Join(missingPackages, " "))
-		run("go", append([]string{"get"}, missingPackages...)...)
+		fmt.Fprintln(os.Stderr, "go", "get", "-d", strings.Join(missingPackages, " "))
+		run("go", append([]string{"get", "-d"}, missingPackages...)...)
 		attempts++
 		goto GetAllDeps
 	}
