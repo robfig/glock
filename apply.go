@@ -51,6 +51,9 @@ func runApply(cmd *Command, args []string) {
 				fmt.Println("error syncing", cmd.importPath, "to", cmd.revision, "-", err)
 				continue
 			}
+
+			// clean existing package
+			run("go", "clean", "-i", path.Join(cmd.importPath, "..."))
 		}
 	}
 }
