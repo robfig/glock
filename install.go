@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/build"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
@@ -64,7 +65,11 @@ func runInstall(cmd *Command, args []string) {
 
 	for _, hook := range hooks {
 		var filename = filepath.Join(pkg.Dir, hook.filename)
-		var err = ioutil.WriteFile(filename, []byte(hook.content), 0755)
+		var err = os.MkdirAll(filepath.Dir(filename), 0755)
+		if err != nil {
+			perror(err)
+		}
+		err = ioutil.WriteFile(filename, []byte(hook.content), 0755)
 		if err != nil {
 			perror(err)
 		}
