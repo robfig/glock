@@ -48,6 +48,7 @@ var commands = []*Command{
 	cmdApply,
 	cmdInstall,
 	cmdSync,
+	cmdCmd,
 }
 
 func main() {

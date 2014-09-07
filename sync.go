@@ -24,6 +24,7 @@ For example:
 
 It verifies that each entry in the GLOCKFILE is at the expected revision.
 If a dependency is not at the expected revision, it is re-downloaded and synced.
+Commands are built if necessary.
 `,
 }
 
@@ -63,14 +64,20 @@ func runSync(cmd *Command, args []string) {
 		perror(err)
 	}
 
+	var cmds []string
 	var scanner = bufio.NewScanner(glockfile)
 	for scanner.Scan() {
 		var fields = strings.Fields(scanner.Text())
+		if fields[0] == "cmd" {
+			cmds = append(cmds, fields[1])
+			continue
+		}
+
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
 		var importDir = filepath.Join(gopath, "src", importPath)
 
 		// Try to find the repo.
-		// go get it before hand just in case it doesn't exist. (no-op if it does exist)
+		// go get it beforehand just in case it doesn't exist. (no-op if it does exist)
 		// (ignore failures due to "no buildable files" or build errors in the package.)
 		var getOutput, _ = run("go", "get", "-v", "-d", importPath)
 		var repo, err = glockRepoRootForImportPath(importPath)
@@ -97,9 +104,13 @@ func runSync(cmd *Command, args []string) {
 		}
 
 		fmt.Println("[" + maybeGot + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
-		err = repo.vcs.download(importDir)
-		if err != nil {
-			perror(err)
+
+		// If we didn't just get this package, download it now to update.
+		if maybeGot == "" {
+			err = repo.vcs.download(importDir)
+			if err != nil {
+				perror(err)
+			}
 		}
 
 		// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
@@ -109,9 +120,24 @@ func runSync(cmd *Command, args []string) {
 			perror(err)
 		}
 	}
-
 	if scanner.Err() != nil {
 		perror(scanner.Err())
+	}
+
+	// Install the commands.
+	for _, cmd := range cmds {
+		// any updated packages should have been cleaned by the previous step.
+		// "go install" will do it. (aside from one pathological case, meh)
+		fmt.Printf("cmd %-59.58s\t", cmd)
+		installOutput, err := run("go", "install", "-v", cmd)
+		switch {
+		case err != nil:
+			fmt.Println("[" + critical("error") + " " + err.Error() + "]")
+		case len(bytes.TrimSpace(installOutput)) > 0:
+			fmt.Println("[" + warning("built") + "]")
+		default:
+			fmt.Println("[" + info("OK") + "]")
+		}
 	}
 }
 

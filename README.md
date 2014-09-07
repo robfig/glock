@@ -93,3 +93,23 @@ $ diff <(glock save -n github.com/acme/project) <(cat github.com/acme/project/GL
 ```
 
 That will return success (0) if there were no differences between the current project dependencies and what is recorded in the GLOCKFILE, or it will exit with an error (1) and print the differences.
+
+## Commands
+
+Glock can also be used to build and update go programs across the team.
+
+Commands are declared at the top of your GLOCKFILE:
+
+```
+cmd code.google.com/p/go.tools/cmd/godoc
+cmd code.google.com/p/go.tools/cmd/goimports
+cmd code.google.com/p/go.tools/cmd/vet
+...
+```
+
+The declarations have a couple effects:
+
+* These commands will have their dependencies included when glock calculates them.
+* The commands will be built (if necessary) during "glock sync".
+* New commands will be installed by "glock apply", and existing commands will be
+  re-installed when package versions are updated.
