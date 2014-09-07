@@ -2,9 +2,7 @@ package main
 
 import (
 	"bufio"
-
 	"io"
-
 	"regexp"
 )
 
@@ -27,45 +25,74 @@ const (
 	update
 )
 
-type command struct {
+type libraryAction struct {
 	action               action
 	importPath, revision string
 }
 
+type cmdAction struct {
+	add        bool
+	importPath string
+}
+
+type playbook struct {
+	library []libraryAction // updates to libraries in gopath
+	cmd     []cmdAction     // updates to cmds that should be built
+}
+
+const (
+	importPathExpr = `[\w.]+\.\w+/[\w/.-]+`
+	libLineExpr    = `[+-](` + importPathExpr + `) (\w+)`
+	cmdLineExpr    = `[+-]cmd (` + importPathExpr + `)`
+)
+
+var (
+	libLineRegex = regexp.MustCompile(libLineExpr)
+	cmdLineRegex = regexp.MustCompile(cmdLineExpr)
+)
+
 func readDiffLines(reader io.Reader) []diff {
 	// Get the list of diffs from the commit log.
 	var (
-		diffs     []diff
-		scanner   = bufio.NewScanner(reader)
-		lineRegex = regexp.MustCompile(`[+-]([\w.]+\.\w+/[\w/-]+) (\w+)`)
+		diffs   []diff
+		scanner = bufio.NewScanner(reader)
 	)
 	for scanner.Scan() {
-		if !lineRegex.MatchString(scanner.Text()) {
+		var txt = scanner.Text()
+		if matches := libLineRegex.FindStringSubmatch(txt); matches != nil {
+			diffs = append(diffs, diff{
+				importPath: matches[1],
+				revision:   matches[2],
+				added:      txt[0] == '+',
+			})
+		} else if matches := cmdLineRegex.FindStringSubmatch(txt); matches != nil {
+			diffs = append(diffs, diff{
+				importPath: matches[1],
+				revision:   "cmd",
+				added:      txt[0] == '+',
+			})
+		} else {
 			diffs = append(diffs, emptyLine)
-			continue
 		}
-
-		var matches = lineRegex.FindStringSubmatch(scanner.Text())
-		diffs = append(diffs, diff{
-			importPath: matches[1],
-			revision:   matches[2],
-			added:      scanner.Text()[0] == '+',
-		})
 	}
 	return diffs
 }
 
-func buildCommands(diffs []diff) []command {
+func buildPlaybook(diffs []diff) playbook {
 	// Convert diffs into actions.  Since they may touch the same lines over
 	// multiple commits, keep track of import paths that we've added commands for,
 	// and only add the first.
 	var (
-		cmds            []command
+		book            playbook
 		seenImportPaths = make(map[string]struct{})
 	)
 	for i := 0; i < len(diffs); i++ {
 		var this = diffs[i]
 		if this == emptyLine {
+			continue
+		}
+		if this.revision == "cmd" {
+			book.cmd = append(book.cmd, cmdAction{this.added, this.importPath})
 			continue
 		}
 		if _, ok := seenImportPaths[this.importPath]; ok {
@@ -82,18 +109,18 @@ func buildCommands(diffs []diff) []command {
 			if this.added == next.added {
 				panic("most unexpected")
 			}
-			cmds = append(cmds, newUpdate(this, next))
+			book.library = append(book.library, newUpdate(this, next))
 			i++
 			continue
 		}
 
 		// If not, record this as an action.
-		cmds = append(cmds, newAddOrRemove(this))
+		book.library = append(book.library, newAddOrRemove(this))
 	}
-	return cmds
+	return book
 }
 
-func newUpdate(a, b diff) command {
+func newUpdate(a, b diff) libraryAction {
 	var added = a
 	if b.added {
 		added = b
@@ -101,7 +128,7 @@ func newUpdate(a, b diff) command {
 	return newCommand(update, added)
 }
 
-func newAddOrRemove(d diff) command {
+func newAddOrRemove(d diff) libraryAction {
 	var action = add
 	if !d.added {
 		action = remove
@@ -109,8 +136,8 @@ func newAddOrRemove(d diff) command {
 	return newCommand(action, d)
 }
 
-func newCommand(a action, d diff) command {
-	return command{
+func newCommand(a action, d diff) libraryAction {
+	return libraryAction{
 		action:     a,
 		importPath: d.importPath,
 		revision:   d.revision,

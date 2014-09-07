@@ -233,7 +233,7 @@ import (
 	build.Default.GOPATH = gopath
 
 	var buf bytes.Buffer
-	outputDeps(&buf, calcDepRoots(test.pkgs[0].importPath))
+	outputDeps(&buf, calcDepRoots(test.pkgs[0].importPath, nil))
 
 	// See if we got all the expected packages
 	var output = buf.String()

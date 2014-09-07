@@ -39,22 +39,45 @@ func runSave(cmd *Command, args []string) {
 		cmdSave.Usage()
 		return
 	}
-	var importPath = args[0]
-	var depRoots = calcDepRoots(importPath)
 
-	// Figure out where output should go
-	var output io.Writer = os.Stdout
-	if !*saveN {
-		var glockFilename = path.Join(os.Getenv("GOPATH"), "src", importPath, "GLOCKFILE")
-		var f, err = os.Create(glockFilename)
-		if err != nil {
-			perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
-		}
-		defer f.Close()
-		output = f
+	// Read cmd lines from GLOCKFILE and calculate required dependencies.
+	var (
+		importPath = args[0]
+		cmds       = readCmds(importPath)
+		depRoots   = calcDepRoots(importPath, cmds)
+	)
+
+	output := getOutput(importPath, *saveN)
+	outputCmds(output, cmds)
+	outputDeps(output, depRoots)
+	output.Close()
+}
+
+func glockFilename(importPath string) string {
+	return path.Join(os.Getenv("GOPATH"), "src", importPath, "GLOCKFILE")
+}
+
+func getOutput(importPath string, n bool) io.WriteCloser {
+	if n {
+		return os.Stdout
 	}
 
-	outputDeps(output, depRoots)
+	var f, err = os.Create(glockFilename(importPath))
+	if err != nil {
+		perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
+	}
+	return f
+}
+
+func outputCmds(w io.Writer, cmds []string) {
+	sort.Strings(cmds)
+	var prev string
+	for _, cmd := range cmds {
+		if cmd != prev {
+			fmt.Fprintln(w, "cmd", cmd)
+		}
+		prev = cmd
+	}
 }
 
 func outputDeps(w io.Writer, depRoots []*repoRoot) {
@@ -76,7 +99,7 @@ func outputDeps(w io.Writer, depRoots []*repoRoot) {
 // example, github.com/robfig/soy and github.com/robfig/soy/data are two
 // dependent packages but only one repo. the returned repos are ordered
 // alphabetically by import path.
-func calcDepRoots(importPath string) []*repoRoot {
+func calcDepRoots(importPath string, cmds []string) []*repoRoot {
 	// Validate that we got an import path that is the base of a repo.
 	var repo, err = glockRepoRootForImportPath(importPath)
 	if err != nil {
@@ -86,12 +109,12 @@ func calcDepRoots(importPath string) []*repoRoot {
 		perror(fmt.Errorf("%v must be the base of a repo (root is %q)", importPath, repo.root))
 	}
 
-	// Convert from packages to repo roots.
 	var attempts = 1
 GetAllDeps:
 	var depRoots = map[string]*repoRoot{}
 	var missingPackages []string
-	for _, importPath := range getAllDeps(importPath) {
+	for _, importPath := range getAllDeps(importPath, cmds) {
+		// Convert from packages to repo roots.
 		var repoRoot, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
@@ -135,19 +158,25 @@ func (p byImportPath) Less(i, j int) bool { return p[i].root < p[j].root }
 func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 // getAllDeps returns a slice of package import paths for all dependencies
-// (including test dependencies) of the given package.
-func getAllDeps(importPath string) []string {
+// (including test dependencies) of the given import path (and subpackages) and commands.
+func getAllDeps(importPath string, cmds []string) []string {
 	// Get a set of transitive dependencies (package import paths) for the
 	// specified package.
-	var output = mustRun("go", "list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`,
-		path.Join(importPath, "..."))
+	var pkgExprs = append([]string{path.Join(importPath, "...")}, cmds...)
+	var output = mustRun("go",
+		append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, pkgExprs...)...)
 	var deps = filterPackages(output, nil) // filter out standard library
+
+	// Add the command packages.
+	for _, cmd := range cmds {
+		deps[cmd] = struct{}{}
+	}
 
 	// List dependencies of test files, which are not included in the go list .Deps
 	// Also, ignore any dependencies that are already covered.
-	var testImportOutput = mustRun("go", "list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`,
-		path.Join(importPath, "..."))
-	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out standard library and existing deps
+	var testImportOutput = mustRun("go",
+		append([]string{"list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`}, pkgExprs...)...)
+	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out stdlib and existing deps
 	for dep := range testImmediateDeps {
 		deps[dep] = struct{}{}
 	}
@@ -219,6 +248,34 @@ func filterPackages(output []byte, exclude map[string]struct{}) map[string]struc
 		deps[pkg] = struct{}{}
 	}
 	return deps
+}
+
+// readCmds returns the list of cmds declared in the given glockfile.
+// They must appear at the top of the file, with the syntax:
+//   cmd code.google.com/p/go.tools/cmd/godoc
+//   cmd github.com/robfig/glock
+func readCmds(importPath string) []string {
+	var glockfile, err = os.Open(glockFilename(importPath))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		perror(err)
+	}
+
+	var cmds []string
+	var scanner = bufio.NewScanner(glockfile)
+	for scanner.Scan() {
+		var fields = strings.Fields(scanner.Text())
+		if len(fields) != 2 || fields[0] != "cmd" {
+			return cmds
+		}
+		cmds = append(cmds, fields[1])
+	}
+	if err := scanner.Err(); err != nil {
+		perror(err)
+	}
+	return cmds
 }
 
 // Keep edits to vcs.go separate from the stock version.
