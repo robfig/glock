@@ -4,5 +4,7 @@ go:
   - tip
 install:
   - go get github.com/robfig/glock
+  - git config --global user.email "travis@localhost.com"
+	- git config --global user.name "Travis"
 script:
   - go test github.com/robfig/glock
