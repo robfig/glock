@@ -250,7 +250,13 @@ func filterPackages(output []byte, exclude map[string]struct{}) map[string]struc
 //   cmd github.com/robfig/glock
 func readCmds(filename string) []string {
 	var glockfile, err = os.Open(filename)
-	if err != nil {
+	switch {
+	case err == nil:
+
+	case os.IsNotExist(err):
+		return nil
+
+	default:
 		perror(err)
 	}
 
