@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"go/build"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -108,12 +107,6 @@ func runSync(cmd *Command, args []string) {
 		err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
 		if err != nil {
 			perror(err)
-		}
-
-		// Clean the Go package to force rebuild.
-		_, err = run("go", "clean", "-i", path.Join(importPath, "..."))
-		if err != nil {
-			fmt.Println("failed to clean:", err)
 		}
 	}
 
