@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"go/build"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,10 @@ var cmdSync = &Command{
 	Short:     "sync current GOPATH with GLOCKFILE in the import path's root.",
 	Long: `sync checks the GOPATH for consistency with the given package's GLOCKFILE
 
+Options:
+
+	-n	read from stdin instead of reading from a file.
+
 For example:
 
 	glock sync github.com/robfig/glock
@@ -26,6 +31,8 @@ It verifies that each entry in the GLOCKFILE is at the expected revision.
 If a dependency is not at the expected revision, it is re-downloaded and synced.
 `,
 }
+
+var readN = cmdSync.Flag.Bool("n", false, "Don't load the GLOCKFILE, just read from stdin")
 
 var (
 	color = flag.Bool("color", true, "if true, colorize terminal output")
@@ -58,12 +65,11 @@ func runSync(cmd *Command, args []string) {
 	}
 
 	var gopath = filepath.SplitList(build.Default.GOPATH)[0]
-	glockfile, err := os.Open(filepath.Join(gopath, "src", repo.root, "GLOCKFILE"))
+	glockfile, err := readGlockFile(gopath, repo.root)
 	if err != nil {
 		perror(err)
 	}
-
-	var scanner = bufio.NewScanner(glockfile)
+	var scanner = bufio.NewScanner(bytes.NewReader(glockfile))
 	for scanner.Scan() {
 		var fields = strings.Fields(scanner.Text())
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
@@ -113,6 +119,18 @@ func runSync(cmd *Command, args []string) {
 	if scanner.Err() != nil {
 		perror(scanner.Err())
 	}
+}
+func readGlockFile(gopath, repoRoot string) ([]byte, error) {
+	if *readN {
+		return ioutil.ReadAll(os.Stdin)
+	}
+
+	glockfile, err := os.Open(filepath.Join(gopath, "src", repoRoot, "GLOCKFILE"))
+	if err != nil {
+		return nil, err
+	}
+	defer glockfile.Close()
+	return ioutil.ReadAll(glockfile)
 }
 
 // truncate a revision to the 12-digit prefix.
