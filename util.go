@@ -11,15 +11,22 @@ import (
 
 // glockRepoRootForImportPath wraps the vcs.go version.  If the stock one
 // doesn't work, it looks for .git, .hg directories up to the tree.
+// This is done to support repos with non-go-get friendly names.
+// Also, returns an error if it doesn't exist (e.g. it needs to be go gotten).
 func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
-	var rr, err = repoRootForImportPath(importPath)
-	if err == nil {
-		return rr, nil
-	}
-
-	pkg, err := build.Import(importPath, "", build.FindOnly)
+	var pkg, err = build.Import(importPath, "", build.FindOnly)
 	if err != nil {
 		return nil, err
+	}
+
+	rr, err := repoRootForImportPath(importPath)
+	if err == nil {
+		// it may not exist, even with err == nil
+		_, err = os.Stat(pkg.Dir)
+		if err != nil {
+			return nil, err
+		}
+		return rr, nil
 	}
 
 	var dir = pkg.Dir
