@@ -47,26 +47,10 @@ func runSave(cmd *Command, args []string) {
 		depRoots   = calcDepRoots(importPath, cmds)
 	)
 
-	output := getOutput(importPath, *saveN)
+	output := glockfileWriter(importPath, *saveN)
 	outputCmds(output, cmds)
 	outputDeps(output, depRoots)
 	output.Close()
-}
-
-func glockFilename(importPath string) string {
-	return path.Join(os.Getenv("GOPATH"), "src", importPath, "GLOCKFILE")
-}
-
-func getOutput(importPath string, n bool) io.WriteCloser {
-	if n {
-		return os.Stdout
-	}
-
-	var f, err = os.Create(glockFilename(importPath))
-	if err != nil {
-		perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
-	}
-	return f
 }
 
 func outputCmds(w io.Writer, cmds []string) {
@@ -82,9 +66,8 @@ func outputCmds(w io.Writer, cmds []string) {
 
 func outputDeps(w io.Writer, depRoots []*repoRoot) {
 	for _, repoRoot := range depRoots {
-		// TODO: Work with multi-element gopaths
 		revision, err := repoRoot.vcs.head(
-			path.Join(os.Getenv("GOPATH"), "src", repoRoot.root),
+			path.Join(gopath(), "src", repoRoot.root),
 			repoRoot.repo)
 		if err != nil {
 			perror(err)
@@ -205,7 +188,6 @@ func run(name string, args ...string) ([]byte, error) {
 		fmt.Println(name, args)
 	}
 	var cmd = exec.Command(name, args...)
-	// cmd.Env = []string{"GOPATH=" + os.Getenv("GOPATH")}
 	return cmd.CombinedOutput()
 }
 

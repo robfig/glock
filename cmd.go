@@ -68,7 +68,7 @@ func runCmd(_ *Command, args []string) {
 	var (
 		cmds     = append(readCmds(importPath), cmd)
 		depRoots = calcDepRoots(importPath, cmds)
-		output   = getOutput(importPath, *cmdN)
+		output   = glockfileWriter(importPath, *cmdN)
 	)
 	outputCmds(output, cmds)
 	outputDeps(output, depRoots)

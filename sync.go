@@ -3,10 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"flag"
 	"fmt"
-	"go/build"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -25,11 +22,17 @@ For example:
 It verifies that each entry in the GLOCKFILE is at the expected revision.
 If a dependency is not at the expected revision, it is re-downloaded and synced.
 Commands are built if necessary.
+
+Options:
+
+	-n	read GLOCKFILE from stdin
+
 `,
 }
 
 var (
-	color = flag.Bool("color", true, "if true, colorize terminal output")
+	syncColor = cmdSync.Flag.Bool("color", true, "if true, colorize terminal output")
+	syncN     = cmdSync.Flag.Bool("n", false, "Read GLOCKFILE from stdin")
 
 	info     = gocolorize.NewColor("green").Paint
 	warning  = gocolorize.NewColor("yellow").Paint
@@ -43,25 +46,22 @@ func init() {
 }
 
 func runSync(cmd *Command, args []string) {
-	if len(args) == 0 {
+	if len(args) == 0 && !*syncN {
 		cmdSync.Usage()
 		return
 	}
-	if !*color {
+
+	var importPath string
+	if len(args) > 0 {
+		importPath = args[0]
+	}
+	var glockfile = glockfileReader(importPath, *syncN)
+	defer glockfile.Close()
+
+	if !*syncColor {
 		info = disabled
 		warning = disabled
 		critical = disabled
-	}
-	var importPath = args[0]
-	var repo, err = glockRepoRootForImportPath(importPath)
-	if err != nil {
-		perror(err)
-	}
-
-	var gopath = filepath.SplitList(build.Default.GOPATH)[0]
-	glockfile, err := os.Open(filepath.Join(gopath, "src", repo.root, "GLOCKFILE"))
-	if err != nil {
-		perror(err)
 	}
 
 	var cmds []string
@@ -74,7 +74,7 @@ func runSync(cmd *Command, args []string) {
 		}
 
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
-		var importDir = filepath.Join(gopath, "src", importPath)
+		var importDir = filepath.Join(gopath(), "src", importPath)
 
 		// Try to find the repo.
 		// go get it beforehand just in case it doesn't exist. (no-op if it does exist)
@@ -91,7 +91,7 @@ func runSync(cmd *Command, args []string) {
 			maybeGot = warning("get ")
 		}
 
-		actualRevision, err := repo.vcs.head(filepath.Join(gopath, "src", repo.root), repo.repo)
+		actualRevision, err := repo.vcs.head(filepath.Join(gopath(), "src", repo.root), repo.repo)
 		if err != nil {
 			fmt.Println("error determining revision of", repo.root, err)
 			continue

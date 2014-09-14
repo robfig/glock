@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/build"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,4 +49,36 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 	}
 
 	return nil, fmt.Errorf("no version control directory found for %q", importPath)
+}
+
+func gopath() string {
+	return filepath.SplitList(build.Default.GOPATH)[0]
+}
+
+func glockFilename(importPath string) string {
+	return path.Join(gopath(), "src", importPath, "GLOCKFILE")
+}
+
+func glockfileReader(importPath string, n bool) io.ReadCloser {
+	if n {
+		return os.Stdin
+	}
+
+	var glockfile, err = os.Open(glockFilename(importPath))
+	if err != nil {
+		perror(err)
+	}
+	return glockfile
+}
+
+func glockfileWriter(importPath string, n bool) io.WriteCloser {
+	if n {
+		return os.Stdout
+	}
+
+	var f, err = os.Create(glockFilename(importPath))
+	if err != nil {
+		perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
+	}
+	return f
 }
