@@ -5,15 +5,29 @@ import (
 	"bytes"
 	"fmt"
 	"go/build"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"io/ioutil"
-	"os"
-
 	"testing"
 )
+
+func TestParseHEAD(t *testing.T) {
+	var tests = map[string]string{
+		"2bebebd91805dbb931317f7a4057e4e8de9d9781": "2bebebd91805dbb931317f7a4057e4e8de9d9781",
+		"19114a3ee7d5 tip":                         "19114a3ee7d5",
+		"19114a3ee7d5+ tip":                        "19114a3ee7d5",
+		"50: Dimiter Naydenov 2014-02-12 [merge] ec2: Added (Un)AssignPrivateIPAddresses APIs": "50",
+	}
+
+	for input, expected := range tests {
+		var actual = parseHEAD([]byte(input))
+		if actual != expected {
+			t.Errorf("(expected) %v != %v (actual)", expected, actual)
+		}
+	}
+}
 
 type saveTest struct {
 	name   string
