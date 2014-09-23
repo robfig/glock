@@ -78,54 +78,73 @@ func readDiffLines(reader io.Reader) []diff {
 	return diffs
 }
 
+func processDiffBlock(diffs []diff) []libraryAction {
+	// Assume:
+	// - An import path appears once or twice in a block. If twice, it was updated.
+	var importPathActions = make(map[string]libraryAction)
+	for _, this := range diffs {
+		// Calculate the new action for this import path.
+		// (Potentially this updates a previously recorded action from e.g. add to update)
+		if existing, ok := importPathActions[this.importPath]; ok {
+			if existing.action == update {
+				panic("unexpected: found import path " + this.importPath + " > 2 times in the diff")
+			}
+			importPathActions[this.importPath] = newUpdate(existing, this)
+		} else {
+			importPathActions[this.importPath] = newAddOrRemove(this)
+		}
+	}
+
+	// Build all the library actions
+	var result []libraryAction
+	for _, action := range importPathActions {
+		result = append(result, action)
+	}
+	return result
+}
+
 func buildPlaybook(diffs []diff) playbook {
 	// Convert diffs into actions.  Since they may touch the same lines over
 	// multiple commits, keep track of import paths that we've added commands for,
 	// and only add the first.
 	var (
 		book            playbook
+		block           []diff
 		seenImportPaths = make(map[string]struct{})
 	)
-	for i := 0; i < len(diffs); i++ {
-		var this = diffs[i]
-		if this == emptyLine {
-			continue
-		}
-		if this.revision == "cmd" {
-			book.cmd = append(book.cmd, cmdAction{this.added, this.importPath})
-			continue
-		}
-		if _, ok := seenImportPaths[this.importPath]; ok {
-			continue
-		}
-		seenImportPaths[this.importPath] = struct{}{}
-
-		// Is this an updated line pair (which we treat as a unit)?
-		var next = emptyLine
-		if i < len(diffs)-1 {
-			next = diffs[i+1]
-		}
-		if next != emptyLine && next.importPath == this.importPath {
-			if this.added == next.added {
-				panic("most unexpected")
+	for _, this := range append(diffs, emptyLine) {
+		switch {
+		case this == emptyLine:
+			// Consume the past block of diffs. Blocks of diffs are separated by emptyLine.
+			// Assume:
+			// - Blocks are processed in reverse chronological order. If we've seen an
+			//   import path in a previous block, ignore it entirely.
+			if block == nil {
+				continue
 			}
-			book.library = append(book.library, newUpdate(this, next))
-			i++
-			continue
+			for _, libAction := range processDiffBlock(block) {
+				if _, ok := seenImportPaths[libAction.importPath]; ok {
+					continue
+				}
+				seenImportPaths[libAction.importPath] = struct{}{}
+				book.library = append(book.library, libAction)
+			}
+			block = nil
+		case this.revision == "cmd":
+			book.cmd = append(book.cmd, cmdAction{this.added, this.importPath})
+		default:
+			block = append(block, this)
 		}
-
-		// If not, record this as an action.
-		book.library = append(book.library, newAddOrRemove(this))
 	}
 	return book
 }
 
-func newUpdate(a, b diff) libraryAction {
-	var added = a
+func newUpdate(a libraryAction, b diff) libraryAction {
 	if b.added {
-		added = b
+		return newCommand(update, b)
 	}
-	return newCommand(update, added)
+	a.action = update
+	return a
 }
 
 func newAddOrRemove(d diff) libraryAction {
