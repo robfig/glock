@@ -41,8 +41,9 @@ type pkg struct {
 }
 
 type file struct {
-	name    string
-	imports []string
+	name     string
+	pkg_name string
+	imports  []string
 }
 
 var saveTests = []saveTest{
@@ -51,7 +52,7 @@ var saveTests = []saveTest{
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"net/http"}},
+				{"foo.go", "p1", []string{"net/http"}},
 			},
 		},
 		},
@@ -63,11 +64,11 @@ var saveTests = []saveTest{
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"github.com/test/p2"}},
+				{"foo.go", "p1", []string{"github.com/test/p2"}},
 			}}, {
 			"github.com/test/p2",
 			[]file{
-				{"foo.go", []string{"net/http"}},
+				{"foo.go", "p2", []string{"net/http"}},
 			}},
 		},
 		[]string{"github.com/test/p2"},
@@ -78,15 +79,15 @@ var saveTests = []saveTest{
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"github.com/test/p2"}},
+				{"foo.go", "p1", []string{"github.com/test/p2"}},
 			}}, {
 			"github.com/test/p2",
 			[]file{
-				{"foo.go", []string{"github.com/test/p3"}},
+				{"foo.go", "p1", []string{"github.com/test/p3"}},
 			}}, {
 			"github.com/test/p3",
 			[]file{
-				{"foo.go", []string{"net/http"}},
+				{"foo.go", "p1", []string{"net/http"}},
 			}},
 		},
 		[]string{"github.com/test/p2", "github.com/test/p3"},
@@ -99,30 +100,30 @@ var saveTests = []saveTest{
 	// - package's dependencies' tests' dependencies
 	// - package's tests' dependencies' tests' dependencies
 	{
-		"test deps",
+		"in-package test deps",
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"github.com/test/p2"}},
-				{"foo_test.go", []string{"github.com/test/p3"}},
+				{"foo.go", "p1", []string{"github.com/test/p2"}},
+				{"foo_test.go", "p1", []string{"github.com/test/p3"}},
 			}}, {
 			"github.com/test/p2",
 			[]file{
-				{"foo.go", []string{"net/http"}},
-				{"foo_test.go", []string{"github.com/test/p4"}},
+				{"foo.go", "p1", []string{"net/http"}},
+				{"foo_test.go", "p1", []string{"github.com/test/p4"}},
 			}}, {
 			"github.com/test/p3",
 			[]file{
-				{"foo.go", []string{"net/http"}},
-				{"foo_test.go", []string{"github.com/test/p5"}},
+				{"foo.go", "p1", []string{"net/http"}},
+				{"foo_test.go", "p1", []string{"github.com/test/p5"}},
 			}}, {
 			"github.com/test/p4", // the dependencies' tests' dependency
 			[]file{
-				{"foo.go", []string{"net/http"}},
+				{"foo.go", "p1", []string{"net/http"}},
 			}}, {
 			"github.com/test/p5", // the tests' dependencies' tests' dependency
 			[]file{
-				{"foo.go", []string{"net/http"}},
+				{"foo.go", "p1", []string{"net/http"}},
 			}},
 		},
 		[]string{
@@ -134,14 +135,31 @@ var saveTests = []saveTest{
 	},
 
 	{
+		"outside-package test deps",
+		[]pkg{{
+			"github.com/test/p1",
+			[]file{
+				{"foo_test.go", "p1_test", []string{"github.com/test/p2"}},
+			}}, {
+			"github.com/test/p2",
+			[]file{
+				{"foo.go", "p1", []string{"net/http"}},
+			}},
+		},
+		[]string{
+			"github.com/test/p2",
+		},
+	},
+
+	{
 		"sub-packages of self",
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"github.com/test/p1/p2"}},
-				{"foo_test.go", []string{"github.com/test/p1/p3"}},
-				{"p2/foo.go", []string{"os"}},
-				{"p3/foo.go", []string{"os"}},
+				{"foo.go", "p1", []string{"github.com/test/p1/p2"}},
+				{"foo_test.go", "p1", []string{"github.com/test/p1/p3"}},
+				{"p2/foo.go", "p1", []string{"os"}},
+				{"p3/foo.go", "p1", []string{"os"}},
 			}},
 		},
 		[]string{},
@@ -152,13 +170,13 @@ var saveTests = []saveTest{
 		[]pkg{{
 			"github.com/test/p1",
 			[]file{
-				{"foo.go", []string{"github.com/test/p2"}},
-				{"foo_test.go", []string{"github.com/test/p2/p3"}},
+				{"foo.go", "p1", []string{"github.com/test/p2"}},
+				{"foo_test.go", "p1", []string{"github.com/test/p2/p3"}},
 			}}, {
 			"github.com/test/p2",
 			[]file{
-				{"foo.go", []string{"net/http"}},
-				{"p3/foo.go", []string{"net/http"}},
+				{"foo.go", "p1", []string{"net/http"}},
+				{"p3/foo.go", "p1", []string{"net/http"}},
 			}},
 		},
 		[]string{
@@ -179,6 +197,7 @@ func runSaveTest(t *testing.T, test saveTest) {
 		panic(err)
 	}
 	t.Log(gopath)
+	defer os.RemoveAll(gopath)
 
 	// Create the fake Go packages specified by pkgs
 	for _, pkg := range test.pkgs {
@@ -215,8 +234,7 @@ func runSaveTest(t *testing.T, test saveTest) {
 import (
 	_ "%s"
 )`,
-				pkg.importPath[strings.LastIndex(pkg.importPath, "/")+1:],
-				strings.Join(file.imports, `"\n	_ "`))
+			file.pkg_name, strings.Join(file.imports, `"\n	_ "`))
 			f.Close()
 		}
 
