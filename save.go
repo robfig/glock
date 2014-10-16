@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"go/build"
 	"io"
@@ -268,16 +269,35 @@ var headCmds = map[string]string{
 	"bzr": "log -r-1 --line", // 50: Dimiter Naydenov 2014-02-12 [merge] ec2: Added (Un)AssignPrivateIPAddresses APIs
 }
 
-var revisionSeparator = regexp.MustCompile(`[ :+]+`)
+var (
+	revisionSeparator = regexp.MustCompile(`[ :+]+`)
+	validRevision     = regexp.MustCompile(`^[\d\w]+$`)
+)
 
 func (v *vcsCmd) head(dir, repo string) (string, error) {
 	var output, err = v.runOutput(dir, headCmds[v.cmd], "dir", dir, "repo", repo)
 	if err != nil {
 		return "", err
 	}
-	return parseHEAD(output), nil
+	return parseHEAD(output)
 }
 
-func parseHEAD(output []byte) string {
-	return revisionSeparator.Split(string(output), -1)[0]
+func parseHEAD(output []byte) (string, error) {
+	// Handle a case where HG returns success but prints an error, causing our
+	// parsing of the revision id to break.
+	var str = strings.TrimSpace(string(output))
+	for strings.HasPrefix(str, "*** ") {
+		var i = strings.Index(str, "\n")
+		if i == -1 {
+			break
+		}
+		str = str[i+1:]
+	}
+
+	var head = revisionSeparator.Split(str, -1)[0]
+	if !validRevision.MatchString(head) {
+		fmt.Fprintln(os.Stderr, string(output))
+		return "", errors.New("error getting head revision")
+	}
+	return head, nil
 }

@@ -19,10 +19,15 @@ func TestParseHEAD(t *testing.T) {
 		"19114a3ee7d5 tip":                         "19114a3ee7d5",
 		"19114a3ee7d5+ tip":                        "19114a3ee7d5",
 		"50: Dimiter Naydenov 2014-02-12 [merge] ec2: Added (Un)AssignPrivateIPAddresses APIs": "50",
+		`
+*** failed to import extension foo from ~/foo.py: [Errno 2] No such file or directory
+*** failed to import extension shelve from ~/hgshelve.py: [Errno 2] No such file or directory'
+19114a3ee7d5+ tip
+`: "19114a3ee7d5",
 	}
 
 	for input, expected := range tests {
-		var actual = parseHEAD([]byte(input))
+		var actual, _ = parseHEAD([]byte(input))
 		if actual != expected {
 			t.Errorf("(expected) %v != %v (actual)", expected, actual)
 		}

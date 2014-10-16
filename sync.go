@@ -96,8 +96,8 @@ func runSync(cmd *Command, args []string) {
 
 		actualRevision, err := repo.vcs.head(filepath.Join(gopath(), "src", repo.root), repo.repo)
 		if err != nil {
-			fmt.Println("error determining revision of", repo.root, err)
-			continue
+			fmt.Println("error determining revision of", repo.root)
+			perror(err)
 		}
 		actualRevision = truncate(actualRevision)
 		fmt.Printf("%-50.49s %-12.12s\t", importPath, actualRevision)
