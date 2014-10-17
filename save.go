@@ -159,7 +159,7 @@ func getAllDeps(importPath string, cmds []string) []string {
 	// List dependencies of test files, which are not included in the go list .Deps
 	// Also, ignore any dependencies that are already covered.
 	var testImportOutput = mustRun("go",
-		append([]string{"list", "-f", `{{range .TestImports}}{{.}}{{"\n"}}{{end}}`}, pkgExprs...)...)
+		append([]string{"list", "-f", `{{join .TestImports "\n"}}{{"\n"}}{{join .XTestImports "\n"}}`}, pkgExprs...)...)
 	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out stdlib and existing deps
 	for dep := range testImmediateDeps {
 		deps[dep] = struct{}{}
