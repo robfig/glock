@@ -1,9 +1,9 @@
-GLock is a command-line tool to lock dependencies to specific revisions, using a
+Glock is a command-line tool to lock dependencies to specific revisions, using a
 version control hook to keep those revisions in sync across a team.
 
 ## Overview
 
-GLock provides 2 commands and a version control hook:
+Glock provides 2 commands and a version control hook:
 
 * "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a GLOCKFILE
 * "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version.
@@ -46,7 +46,7 @@ $ go get github.com/robfig/glock
 
 # Record the package's transitive dependencies, as they currently exist.
 # Glock writes the dependencies to a GLOCKFILE in that package's directory.
-# All depenencies of all descendent packages are included.
+# All dependencies of all descendent packages are included.
 $ glock save github.com/acme/project
 
 # Review and check in the dependencies.
