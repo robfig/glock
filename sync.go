@@ -64,6 +64,7 @@ func runSync(cmd *Command, args []string) {
 		critical = disabled
 	}
 
+	var chans []chan string
 	var cmds []string
 	var scanner = bufio.NewScanner(glockfile)
 	for scanner.Scan() {
@@ -72,59 +73,17 @@ func runSync(cmd *Command, args []string) {
 			cmds = append(cmds, fields[1])
 			continue
 		}
-
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
-		var importDir = filepath.Join(gopath(), "src", importPath)
-
-		// Try to find the repo.
-		var getOutput []byte
-		var repo, err = fastRepoRoot(importPath)
-		if err != nil {
-			// go get it in case it doesn't exist. (no-op if it does exist)
-			// (ignore failures due to "no buildable files" or build errors in the package.)
-			getOutput, _ = run("go", "get", "-v", "-d", importPath)
-			repo, err = fastRepoRoot(importPath)
-			if err != nil {
-				perror(err)
-			}
-		}
-
-		var maybeGot = ""
-		if bytes.Contains(getOutput, []byte("(download)")) {
-			maybeGot = warning("get ")
-		}
-
-		actualRevision, err := repo.vcs.head(filepath.Join(gopath(), "src", repo.root), repo.repo)
-		if err != nil {
-			fmt.Println("error determining revision of", repo.root)
-			perror(err)
-		}
-		actualRevision = truncate(actualRevision)
-		fmt.Printf("%-50.49s %-12.12s\t", importPath, actualRevision)
-		if expectedRevision == actualRevision {
-			fmt.Print("[", maybeGot, info("OK"), "]\n")
-			continue
-		}
-
-		fmt.Println("[" + maybeGot + warning(fmt.Sprintf("checkout %-12.12s", expectedRevision)) + "]")
-
-		// If we didn't just get this package, download it now to update.
-		if maybeGot == "" {
-			err = repo.vcs.download(importDir)
-			if err != nil {
-				perror(err)
-			}
-		}
-
-		// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
-		// which returns error if the revision does not correspond to a tag or head.
-		err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
-		if err != nil {
-			perror(err)
-		}
+		var ch = make(chan string)
+		chans = append(chans, ch)
+		go syncPkg(ch, importPath, expectedRevision)
 	}
 	if scanner.Err() != nil {
 		perror(scanner.Err())
+	}
+
+	for _, ch := range chans {
+		fmt.Print(<-ch)
 	}
 
 	// Install the commands.
@@ -151,4 +110,57 @@ func truncate(rev string) string {
 		return rev[:12]
 	}
 	return rev
+}
+
+func syncPkg(ch chan<- string, importPath, expectedRevision string) {
+	var importDir = filepath.Join(gopath(), "src", importPath)
+	var status bytes.Buffer
+	defer func() { ch <- status.String() }()
+
+	// Try to find the repo.
+	var getOutput []byte
+	var repo, err = fastRepoRoot(importPath)
+	if err != nil {
+		// go get it in case it doesn't exist. (no-op if it does exist)
+		// (ignore failures due to "no buildable files" or build errors in the package.)
+		getOutput, _ = run("go", "get", "-v", "-d", importPath)
+		repo, err = fastRepoRoot(importPath)
+		if err != nil {
+			perror(err)
+		}
+	}
+
+	var maybeGot = ""
+	if bytes.Contains(getOutput, []byte("(download)")) {
+		maybeGot = warning("get ")
+	}
+
+	actualRevision, err := repo.vcs.head(filepath.Join(gopath(), "src", repo.root), repo.repo)
+	if err != nil {
+		fmt.Fprintln(&status, "error determining revision of", repo.root, err)
+		perror(err)
+	}
+	actualRevision = truncate(actualRevision)
+	fmt.Fprintf(&status, "%-50.49s %-12.12s\t", importPath, actualRevision)
+	if expectedRevision == actualRevision {
+		fmt.Fprint(&status, "[", maybeGot, info("OK"), "]\n")
+		return
+	}
+
+	fmt.Fprintln(&status, "["+maybeGot+warning(fmt.Sprintf("checkout %-12.12s", expectedRevision))+"]")
+
+	// If we didn't just get this package, download it now to update.
+	if maybeGot == "" {
+		err = repo.vcs.download(importDir)
+		if err != nil {
+			perror(err)
+		}
+	}
+
+	// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
+	// which returns error if the revision does not correspond to a tag or head.
+	err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
+	if err != nil {
+		perror(err)
+	}
 }
