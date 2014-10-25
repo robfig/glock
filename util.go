@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"io"
@@ -30,32 +31,46 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 	}
 
 	var dir = pkg.Dir
-	var rootImportPath = pkg.ImportPath
 	for len(dir) > 1 {
-		for _, vcsDir := range []string{".git", ".hg", ".bzr"} {
-			_, err := os.Stat(filepath.Join(dir, vcsDir))
-			if os.IsNotExist(err) {
-				continue
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			vcs := vcsByCmd(vcsDir[1:])
-			if vcs == nil {
-				return nil, fmt.Errorf("unknown version control system %q", vcsDir[1:])
-			}
-			return &repoRoot{
-				vcs:  vcs,
-				repo: "",
-				root: rootImportPath,
-			}, nil
-		}
 		dir = filepath.Dir(dir)
-		rootImportPath = path.Dir(rootImportPath)
+		rr, err := fastRepoRoot(dir)
+		if err == nil {
+			return rr, nil
+		}
 	}
 
 	return nil, fmt.Errorf("no version control directory found for %q", importPath)
+}
+
+// fastRepoRoot just checks for existence of VCS dot directories to determine
+// which VCS to use for the given import path.
+// If none are found, an error is returned.
+func fastRepoRoot(rootImportPath string) (*repoRoot, error) {
+	var pkg, err = build.Import(rootImportPath, "", build.FindOnly)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vcsDir := range []string{".git", ".hg", ".bzr", ".svn"} {
+		_, err := os.Stat(filepath.Join(pkg.Dir, vcsDir))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		vcs := vcsByCmd(vcsDir[1:])
+		if vcs == nil {
+			return nil, fmt.Errorf("unknown version control system %q", vcsDir[1:])
+		}
+		return &repoRoot{
+			vcs:  vcs,
+			repo: "",
+			root: rootImportPath,
+		}, nil
+	}
+	return nil, errors.New("no repo found")
 }
 
 func gopath() string {

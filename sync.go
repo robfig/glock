@@ -78,12 +78,12 @@ func runSync(cmd *Command, args []string) {
 
 		// Try to find the repo.
 		var getOutput []byte
-		var repo, err = glockRepoRootForImportPath(importPath)
+		var repo, err = fastRepoRoot(importPath)
 		if err != nil {
 			// go get it in case it doesn't exist. (no-op if it does exist)
 			// (ignore failures due to "no buildable files" or build errors in the package.)
 			getOutput, _ = run("go", "get", "-v", "-d", importPath)
-			repo, err = glockRepoRootForImportPath(importPath)
+			repo, err = fastRepoRoot(importPath)
 			if err != nil {
 				perror(err)
 			}

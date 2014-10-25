@@ -99,6 +99,9 @@ GetAllDeps:
 	var missingPackages []string
 	for _, importPath := range getAllDeps(importPath, cmds) {
 		// Convert from packages to repo roots.
+		// TODO: Filter out any packages that have prefixes also included in the list.
+		// e.g. pkg/foo/bar , pkg/foo/baz , pkg/foo
+		// That would skip the relatively slow (redundant) determining of repo root for each.
 		var repoRoot, err = glockRepoRootForImportPath(importPath)
 		if err != nil {
 			perror(err)
