@@ -30,13 +30,13 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 		return rr, nil
 	}
 
-	var dir = pkg.Dir
+	var dir = pkg.ImportPath
 	for len(dir) > 1 {
-		dir = filepath.Dir(dir)
 		rr, err := fastRepoRoot(dir)
 		if err == nil {
 			return rr, nil
 		}
+		dir = filepath.Dir(dir)
 	}
 
 	return nil, fmt.Errorf("no version control directory found for %q", importPath)
