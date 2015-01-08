@@ -11,7 +11,7 @@ import (
 )
 
 var cmdSync = &Command{
-	UsageLine: "sync [import path]",
+	UsageLine: "sync [-v] [import path]",
 	Short:     "sync current GOPATH with GLOCKFILE in the import path's root.",
 	Long: `sync checks the GOPATH for consistency with the given package's GLOCKFILE
 
@@ -25,6 +25,7 @@ Commands are built if necessary.
 
 Options:
 
+        -v	print verbose output
 	-n	read GLOCKFILE from stdin
 
 `,
@@ -32,6 +33,7 @@ Options:
 
 var (
 	syncColor = cmdSync.Flag.Bool("color", true, "if true, colorize terminal output")
+	verbose   = cmdSync.Flag.Bool("v", false, "if true, print verbose output")
 	syncN     = cmdSync.Flag.Bool("n", false, "Read GLOCKFILE from stdin")
 
 	info     = gocolorize.NewColor("green").Paint
@@ -100,6 +102,13 @@ func runSync(cmd *Command, args []string) {
 		default:
 			fmt.Println("[" + info("OK") + "]")
 		}
+		if *verbose {
+			trimmed := bytes.TrimSpace(installOutput)
+			if 0 < len(trimmed) {
+				fmt.Println(string(trimmed))
+			}
+		}
+
 	}
 }
 
