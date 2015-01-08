@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"go/build"
 	"io"
@@ -70,7 +69,7 @@ func fastRepoRoot(rootImportPath string) (*repoRoot, error) {
 			root: rootImportPath,
 		}, nil
 	}
-	return nil, errors.New("no repo found")
+	return nil, fmt.Errorf("no repo found: %s", rootImportPath)
 }
 
 func gopath() string {
