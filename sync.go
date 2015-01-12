@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -91,11 +92,13 @@ func runSync(cmd *Command, args []string) {
 		// any updated packages should have been cleaned by the previous step.
 		// "go install" will do it. (aside from one pathological case, meh)
 		fmt.Printf("cmd %-59.58s\t", cmd)
-		installOutput, err := run("go", "install", "-v", cmd)
+		rawOutput, err := run("go", "install", "-v", cmd)
+		output := string(bytes.TrimSpace(rawOutput))
 		switch {
 		case err != nil:
 			fmt.Println("[" + critical("error") + " " + err.Error() + "]")
-		case len(bytes.TrimSpace(installOutput)) > 0:
+			perror(errors.New(output))
+		case 0 < len(output):
 			fmt.Println("[" + warning("built") + "]")
 		default:
 			fmt.Println("[" + info("OK") + "]")
