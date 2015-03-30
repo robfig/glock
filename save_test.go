@@ -188,6 +188,25 @@ var saveTests = []saveTest{
 			"github.com/test/p2",
 		},
 	},
+
+	{
+		"not-at-repo-root",
+		[]pkg{{
+			"github.com/test/p1/subpkg",
+			[]file{
+				{"foo.go", false, []string{"github.com/test/p2"}},
+				{"foo_test.go", false, []string{"github.com/test/p2/p3"}},
+			}}, {
+			"github.com/test/p2",
+			[]file{
+				{"foo.go", false, []string{"net/http"}},
+				{"p3/foo.go", false, []string{"net/http"}},
+			}},
+		},
+		[]string{
+			"github.com/test/p2",
+		},
+	},
 }
 
 func TestSave(t *testing.T) {
@@ -213,7 +232,7 @@ func runSaveTest(t *testing.T, test saveTest) {
 		}
 
 		cmd := exec.Command("git", "init")
-		cmd.Dir = dir
+		cmd.Dir = strings.TrimSuffix(dir, "/subpkg")
 		gitinit, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Logf("git init: %v\noutput: %v", err, string(gitinit))

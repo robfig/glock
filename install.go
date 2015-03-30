@@ -51,6 +51,7 @@ func runInstall(cmd *Command, args []string) {
 	var importPath = args[0]
 	var repo, err = glockRepoRootForImportPath(importPath)
 	if err != nil {
+		fmt.Println("no repo root")
 		perror(err)
 	}
 	var hooks, ok = vcsHooks[repo.vcs]

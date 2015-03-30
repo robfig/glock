@@ -84,15 +84,6 @@ func outputDeps(w io.Writer, depRoots []*repoRoot) {
 // dependent packages but only one repo. the returned repos are ordered
 // alphabetically by import path.
 func calcDepRoots(importPath string, cmds []string) []*repoRoot {
-	// Validate that we got an import path that is the base of a repo.
-	var repo, err = glockRepoRootForImportPath(importPath)
-	if err != nil {
-		perror(err)
-	}
-	if repo.root != importPath {
-		perror(fmt.Errorf("%v must be the base of a repo (root is %q)", importPath, repo.root))
-	}
-
 	var attempts = 1
 GetAllDeps:
 	var depRoots = map[string]*repoRoot{}

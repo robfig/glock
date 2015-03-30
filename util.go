@@ -29,12 +29,13 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 		return rr, nil
 	}
 
-	var dir = pkg.ImportPath
+	var dir = pkg.Dir
 	for len(dir) > 1 {
 		rr, err := fastRepoRoot(dir)
 		if err == nil {
 			return rr, nil
 		}
+		fmt.Println(dir)
 		dir = filepath.Dir(dir)
 	}
 
