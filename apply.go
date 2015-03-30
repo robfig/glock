@@ -11,7 +11,7 @@ import (
 )
 
 var cmdApply = &Command{
-	UsageLine: "apply",
+	UsageLine: "apply [import path]",
 	Short:     "apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.",
 	Long: `apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.
 
@@ -30,6 +30,12 @@ var actionstr = map[action]string{
 }
 
 func runApply(cmd *Command, args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "error: no import path provided\n")
+		cmdApply.Usage()
+		return
+	}
+	var importPath = args[0]
 	var gopath = filepath.SplitList(build.Default.GOPATH)[0]
 	var book = buildPlaybook(readDiffLines(os.Stdin))
 
@@ -72,10 +78,7 @@ func runApply(cmd *Command, args []string) {
 	// If a package was updated, reinstall all commands.
 	if updated {
 		cmds = nil
-		glockfile, err := os.Open("GLOCKFILE")
-		if err != nil {
-			perror(err)
-		}
+		var glockfile = glockfileReader(importPath, false)
 		var scanner = bufio.NewScanner(glockfile)
 		for scanner.Scan() {
 			var txt = scanner.Text()

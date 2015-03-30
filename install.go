@@ -28,10 +28,10 @@ if [[ $GIT_REFLOG_ACTION != pull* ]]; then
         exit 0
 fi
 
-LOG=$(git log -U0 --oneline -p HEAD@{1}..HEAD GLOCKFILE)
+LOG=$(git log -U0 --oneline -p HEAD@{1}..HEAD %s)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
 echo "glock: applying updates..."
-glock apply <<< "$LOG"
+glock apply %s <<< "$LOG"
 `
 
 type hook struct{ filename, content string }
@@ -49,7 +49,7 @@ func runInstall(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
-	var repo, err = glockRepoRootForImportPath(importPath)
+	var repo, err = managedRepoRoot(importPath)
 	if err != nil {
 		perror(err)
 	}
@@ -58,21 +58,34 @@ func runInstall(cmd *Command, args []string) {
 		perror(fmt.Errorf("%s hook not implemented", repo.vcs.name))
 	}
 
-	pkg, err := build.Import(repo.root, "", build.FindOnly)
-	if err != nil {
-		perror(fmt.Errorf("Failed to import %v: %v", repo.root, err))
-	}
-
+	var glockfilePath = calcGlockfilePath(importPath, repo)
 	for _, hook := range hooks {
-		var filename = filepath.Join(pkg.Dir, hook.filename)
+		var filename = filepath.Join(repo.dir, hook.filename)
 		var err = os.MkdirAll(filepath.Dir(filename), 0755)
 		if err != nil {
 			perror(err)
 		}
-		err = ioutil.WriteFile(filename, []byte(hook.content), 0755)
+		var hookContent = fmt.Sprintf(hook.content, glockfilePath, importPath)
+		err = ioutil.WriteFile(filename, []byte(hookContent), 0755)
 		if err != nil {
 			perror(err)
 		}
 		fmt.Println("Installed", filename)
 	}
+}
+
+// calcGlockfilePath calculates the relative path to the GLOCKFILE from the root
+// of the repo.
+func calcGlockfilePath(importPath string, repo *managedRepo) string {
+	var pkg, err = build.Import(importPath, "", build.FindOnly)
+	if err != nil {
+		perror(err)
+	}
+
+	var relPath = ""
+	if len(repo.dir) < len(pkg.Dir) {
+		relPath = pkg.Dir[len(repo.dir)+1:]
+	}
+
+	return filepath.Join(relPath, "GLOCKFILE")
 }
