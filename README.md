@@ -9,8 +9,6 @@ Glock provides 2 commands and a version control hook:
 * "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version.
 * "glock install project" installs a version control hook that watches for changes to project/GLOCKFILE and incrementally applies them.
 
-Glock is similar to "godep -copy=false"
-
 GLOCKFILEs are simple text files that record a repo roots's revision, e.g.
 
 ```
