@@ -38,6 +38,7 @@ var vcsHooks = map[*vcsCmd][]hook{
 	vcsGit: {
 		{filepath.Join(".git", "hooks", "post-merge"), gitHook, "pull"},
 		{filepath.Join(".git", "hooks", "post-checkout"), gitHook, "pull[[:space:]]+--rebase"},
+		{filepath.Join(".git", "hooks", "post-rewrite"), gitHook, "rebase"},
 	},
 }
 
