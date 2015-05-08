@@ -24,7 +24,7 @@ func init() {
 const gitHook = `#!/usr/bin/env bash
 set -e
 
-[[ $GIT_REFLOG_ACTION != pull* ]] && exit 0
+[[ ! $GIT_REFLOG_ACTION =~ %v ]] && exit 0
 
 LOG=$(git log -U0 --oneline -p HEAD@{1}..HEAD %s)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
@@ -32,12 +32,12 @@ echo "glock: applying updates..."
 glock apply %s <<< "$LOG"
 `
 
-type hook struct{ filename, content string }
+type hook struct{ filename, content, action string }
 
 var vcsHooks = map[*vcsCmd][]hook{
 	vcsGit: {
-		{filepath.Join(".git", "hooks", "post-merge"), gitHook},    // git pull
-		{filepath.Join(".git", "hooks", "post-checkout"), gitHook}, // git pull --rebase
+		{filepath.Join(".git", "hooks", "post-merge"), gitHook, "pull"},
+		{filepath.Join(".git", "hooks", "post-checkout"), gitHook, "pull[[:space:]]+--rebase"},
 	},
 }
 
@@ -63,7 +63,7 @@ func runInstall(cmd *Command, args []string) {
 		if err != nil {
 			perror(err)
 		}
-		var hookContent = fmt.Sprintf(hook.content, glockfilePath, importPath)
+		var hookContent = fmt.Sprintf(hook.content, hook.action, glockfilePath, importPath)
 		err = ioutil.WriteFile(filename, []byte(hookContent), 0755)
 		if err != nil {
 			perror(err)
