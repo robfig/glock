@@ -24,9 +24,7 @@ func init() {
 const gitHook = `#!/usr/bin/env bash
 set -e
 
-if [[ $GIT_REFLOG_ACTION != pull* ]]; then
-        exit 0
-fi
+[[ $GIT_REFLOG_ACTION != pull* ]] && exit 0
 
 LOG=$(git log -U0 --oneline -p HEAD@{1}..HEAD %s)
 [ -z "$LOG" ] && echo "glock: no changes to apply" && exit 0
