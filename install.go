@@ -21,7 +21,7 @@ func init() {
 	cmdInstall.Run = runInstall // break init loop
 }
 
-const gitHook = `#!/bin/bash
+const gitHook = `#!/usr/bin/env bash
 set -e
 
 if [[ $GIT_REFLOG_ACTION != pull* ]]; then
