@@ -126,10 +126,21 @@ func syncPkg(ch chan<- string, importPath, expectedRevision string) {
 	if err != nil {
 		// go get it in case it doesn't exist. (no-op if it does exist)
 		// (ignore failures due to "no buildable files" or build errors in the package.)
-		getOutput, _ = run("go", "get", "-v", "-d", importPath)
+		var getErr error
+		getOutput, getErr = run("go", "get", "-v", "-d", importPath)
 		repo, err = fastRepoRoot(importPath)
 		if err != nil {
-			perror(err)
+			var getStatus = "(success)"
+			if getErr != nil {
+				getStatus = string(getOutput) + getErr.Error()
+			}
+			perror(fmt.Errorf(`failed to get: %s
+
+> go get -v -d %s
+%s
+
+> import %s
+%s`, importPath, importPath, getStatus, importPath, err))
 		}
 	}
 
