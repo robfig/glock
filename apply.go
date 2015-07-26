@@ -36,6 +36,7 @@ func runApply(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
+	defer cleanupVendorGOPATH(maybeVendorGOPATH(importPath))
 	var gopath = filepath.SplitList(build.Default.GOPATH)[0]
 	var book = buildPlaybook(readDiffLines(os.Stdin))
 

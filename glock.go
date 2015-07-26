@@ -94,6 +94,12 @@ func perror(err error) {
 	os.Exit(1)
 }
 
+func check(err error) {
+	if err != nil {
+		perror(err)
+	}
+}
+
 // tmpl executes the given template text on data, writing the result to w.
 func tmpl(w io.Writer, text string, data interface{}) {
 	t := template.New("top")
@@ -135,5 +141,11 @@ Usage:
 The commands are:
 {{range .}}
     {{.Name | printf "%-11s"}} {{.Short}}{{end}}
+
+GO15VENDOREXPERIMENT
+
+Typically glock operates on packages in your GOPATH. With the
+GO15VENDOREXPERIMENT environment variable set, glock saves and syncs
+dependencies within a /vendor tree rooted at the GLOCKFILE.
 
 `

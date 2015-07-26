@@ -24,6 +24,11 @@ It verifies that each entry in the GLOCKFILE is at the expected revision.
 If a dependency is not at the expected revision, it is re-downloaded and synced.
 Commands are built if necessary.
 
+GO15VENDOREXPERIMENT
+
+If the GO15VENDOREXPERIMENT environment is set, all dependencies are fetched
+into a /vendor/ tree rooted at the location of the GLOCKFILE.
+
 Options:
 
 	-n	read GLOCKFILE from stdin
@@ -58,6 +63,7 @@ func runSync(cmd *Command, args []string) {
 	}
 	var glockfile = glockfileReader(importPath, *syncN)
 	defer glockfile.Close()
+	defer cleanupVendorGOPATH(maybeVendorGOPATH(importPath))
 
 	if !*syncColor {
 		info = disabled
