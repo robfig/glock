@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-// managedRepo is the repo being managed by glock (where the GLOCKFILE resides)
+// managedRepo is the repo being managed by glock (where the Glockfile resides)
 // Like repoRoot, except managedRepo is allowed to be outside the GOPATH.
 type managedRepo struct {
 	vcs *vcsCmd
@@ -115,7 +115,13 @@ func gopath() string {
 }
 
 func glockFilename(importPath string) string {
-	return path.Join(gopath(), "src", importPath, "GLOCKFILE")
+	var dir = path.Join(gopath(), "src", importPath)
+	var caps = path.Join(dir, "GLOCKFILE")
+	var _, err = os.Stat(caps)
+	if err == nil {
+		return caps
+	}
+	return path.Join(dir, "Glockfile")
 }
 
 func glockfileReader(importPath string, n bool) io.ReadCloser {

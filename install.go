@@ -10,10 +10,10 @@ import (
 
 var cmdInstall = &Command{
 	UsageLine: "install [import path]",
-	Short:     "add a post-merge hook that applies GLOCKFILE changes after each pull.",
+	Short:     "add a post-merge hook that applies Glockfile changes after each pull.",
 	Long: `Install adds a glock hook to the given package's repository
 
-When pulling new commits, it checks whether the GLOCKFILE has been updated. If so,
+When pulling new commits, it checks whether the Glockfile has been updated. If so,
 it calls "glock apply", passing in the diff.`,
 }
 
@@ -73,7 +73,7 @@ func runInstall(cmd *Command, args []string) {
 	}
 }
 
-// calcGlockfilePath calculates the relative path to the GLOCKFILE from the root
+// calcGlockfilePath calculates the relative path to the Glockfile from the root
 // of the repo.
 func calcGlockfilePath(importPath string, repo *managedRepo) string {
 	var pkg, err = build.Import(importPath, "", build.FindOnly)
@@ -86,5 +86,5 @@ func calcGlockfilePath(importPath string, repo *managedRepo) string {
 		relPath = pkg.Dir[len(repo.dir)+1:]
 	}
 
-	return filepath.Join(relPath, "GLOCKFILE")
+	return filepath.Join(relPath, "Glockfile")
 }

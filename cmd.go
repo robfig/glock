@@ -7,25 +7,25 @@ import (
 
 var cmdCmd = &Command{
 	UsageLine: "cmd [project import path] [cmd import path]",
-	Short:     "add a command to your project's GLOCKFILE",
+	Short:     "add a command to your project's Glockfile",
 	Long: `cmd is used to record a Go command-line tool that the project depends on.
 
 The cmd import path must reference a main package. Its dependencies will be
-included in the GLOCKFILE along with the project's dependencies, and the command
+included in the Glockfile along with the project's dependencies, and the command
 will be built by "glock sync" and updated by "glock apply".
 
 This functionality allows you to install and update development tools like "vet"
 and "errcheck" across a team.  It can even be used to automatically update glock
 itself.
 
-Commands are recorded at the top of your GLOCKFILE, in the following format:
+Commands are recorded at the top of your Glockfile, in the following format:
 
 	cmd code.google.com/p/go.tools/cmd/godoc
 	cmd code.google.com/p/go.tools/cmd/goimports
 	cmd code.google.com/p/go.tools/cmd/vet
 
 Dependencies of the commands will be included in the overall calculation and
-included alongside your project's library dependencies within the GLOCKFILE.
+included alongside your project's library dependencies within the Glockfile.
 
 Options:
 

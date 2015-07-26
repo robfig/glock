@@ -5,11 +5,11 @@ version control hook to keep those revisions in sync across a team.
 
 Glock provides 2 commands and a version control hook:
 
-* "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a GLOCKFILE
-* "glock sync project" updates all packages listed in project/GLOCKFILE to the listed version.
-* "glock install project" installs a version control hook that watches for changes to project/GLOCKFILE and incrementally applies them.
+* "glock save project" writes the transitive repo root[1] dependencies of all packages under "project/..." to a Glockfile
+* "glock sync project" updates all packages listed in project/Glockfile to the listed version.
+* "glock install project" installs a version control hook that watches for changes to project/Glockfile and incrementally applies them.
 
-GLOCKFILEs are simple text files that record a repo roots's revision, e.g.
+Glockfiles are simple text files that record a repo roots's revision, e.g.
 
 ```
 bitbucket.org/tebeka/selenium 02df1758050f
@@ -43,12 +43,12 @@ Here is how to get started with Glock.
 $ go get github.com/robfig/glock
 
 # Record the package's transitive dependencies, as they currently exist.
-# Glock writes the dependencies to a GLOCKFILE in that package's directory.
+# Glock writes the dependencies to a Glockfile in that package's directory.
 # All dependencies of all descendent packages are included.
 $ glock save github.com/acme/project
 
 # Review and check in the dependencies.
-$ git add src/github.com/acme/project/GLOCKFILE
+$ git add src/github.com/acme/project/Glockfile
 $ git commit -m 'Save current dependency revisions'
 $ git push
 
@@ -57,7 +57,7 @@ $ glock install github.com/acme/project
 ```
 
 Once the VCS hook is installed, all developers will have their dependencies
-added and updated automatically as the GLOCKFILE changes.
+added and updated automatically as the Glockfile changes.
 
 ## Add/update a dependency
 
@@ -65,7 +65,7 @@ added and updated automatically as the GLOCKFILE changes.
 # Developer wants to add a dependency
 $ go get -u github.com/some/dependency
 $ glock save github.com/acme/project
-$ git commit src/github.com/acme/project/GLOCKFILE
+$ git commit src/github.com/acme/project/Glockfile
 $ git push
 ```
 
@@ -87,16 +87,16 @@ revision.
 It may also be useful to verify that all dependencies are recorded as part of your continuous build.  A simple diff works:
 
 ```
-$ diff <(glock save -n github.com/acme/project) <(cat github.com/acme/project/GLOCKFILE)
+$ diff <(glock save -n github.com/acme/project) <(cat github.com/acme/project/Glockfile)
 ```
 
-That will return success (0) if there were no differences between the current project dependencies and what is recorded in the GLOCKFILE, or it will exit with an error (1) and print the differences.
+That will return success (0) if there were no differences between the current project dependencies and what is recorded in the Glockfile, or it will exit with an error (1) and print the differences.
 
 ## Commands
 
 Glock can also be used to build and update go programs across the team.
 
-Commands are declared at the top of your GLOCKFILE:
+Commands are declared at the top of your Glockfile:
 
 ```
 cmd code.google.com/p/go.tools/cmd/godoc

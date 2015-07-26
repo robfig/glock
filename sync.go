@@ -13,32 +13,32 @@ import (
 
 var cmdSync = &Command{
 	UsageLine: "sync [import path]",
-	Short:     "sync current GOPATH with GLOCKFILE in the import path's root.",
-	Long: `sync checks the GOPATH for consistency with the given package's GLOCKFILE
+	Short:     "sync current GOPATH with Glockfile in the import path's root.",
+	Long: `sync checks the GOPATH for consistency with the given package's Glockfile
 
 For example:
 
 	glock sync github.com/robfig/glock
 
-It verifies that each entry in the GLOCKFILE is at the expected revision.
+It verifies that each entry in the Glockfile is at the expected revision.
 If a dependency is not at the expected revision, it is re-downloaded and synced.
 Commands are built if necessary.
 
 GO15VENDOREXPERIMENT
 
 If the GO15VENDOREXPERIMENT environment is set, all dependencies are fetched
-into a /vendor/ tree rooted at the location of the GLOCKFILE.
+into a /vendor/ tree rooted at the location of the Glockfile.
 
 Options:
 
-	-n	read GLOCKFILE from stdin
+	-n	read Glockfile from stdin
 
 `,
 }
 
 var (
 	syncColor = cmdSync.Flag.Bool("color", true, "if true, colorize terminal output")
-	syncN     = cmdSync.Flag.Bool("n", false, "Read GLOCKFILE from stdin")
+	syncN     = cmdSync.Flag.Bool("n", false, "Read Glockfile from stdin")
 
 	info     = gocolorize.NewColor("green").Paint
 	warning  = gocolorize.NewColor("yellow").Paint

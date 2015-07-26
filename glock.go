@@ -146,6 +146,6 @@ GO15VENDOREXPERIMENT
 
 Typically glock operates on packages in your GOPATH. With the
 GO15VENDOREXPERIMENT environment variable set, glock saves and syncs
-dependencies within a /vendor tree rooted at the GLOCKFILE.
+dependencies within a /vendor tree rooted at the Glockfile.
 
 `

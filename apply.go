@@ -12,10 +12,10 @@ import (
 
 var cmdApply = &Command{
 	UsageLine: "apply [import path]",
-	Short:     "apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.",
-	Long: `apply the changes described by a GLOCKFILE diff (on STDIN) to the current GOPATH.
+	Short:     "apply the changes described by a Glockfile diff (on STDIN) to the current GOPATH.",
+	Long: `apply the changes described by a Glockfile diff (on STDIN) to the current GOPATH.
 
-It is meant to be called from a VCS hook on any change to the GLOCKFILE.
+It is meant to be called from a VCS hook on any change to the Glockfile.
 `,
 }
 

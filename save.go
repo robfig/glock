@@ -17,10 +17,10 @@ import (
 
 var cmdSave = &Command{
 	UsageLine: "save [import path]",
-	Short:     "save a GLOCKFILE for the given package's dependencies",
+	Short:     "save a Glockfile for the given package's dependencies",
 	Long: `save is used to record the current revisions of a package's dependencies
 
-It writes this state to a file in the root of the package called "GLOCKFILE".
+It writes this state to a file in the root of the package called "Glockfile".
 
 Options:
 
@@ -41,7 +41,7 @@ func runSave(cmd *Command, args []string) {
 		return
 	}
 
-	// Read cmd lines from GLOCKFILE and calculate required dependencies.
+	// Read cmd lines from Glockfile and calculate required dependencies.
 	var (
 		importPath = args[0]
 		cmds       = readCmds(importPath)
