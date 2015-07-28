@@ -86,5 +86,5 @@ func calcGlockfilePath(importPath string, repo *managedRepo) string {
 		relPath = pkg.Dir[len(repo.dir)+1:]
 	}
 
-	return filepath.Join(relPath, "Glockfile")
+	return filepath.Join(relPath, "Glockfile") + " " + filepath.Join(relPath, "GLOCKFILE")
 }

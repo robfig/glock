@@ -36,9 +36,14 @@ func runApply(cmd *Command, args []string) {
 		return
 	}
 	var importPath = args[0]
+	var book = buildPlaybook(readDiffLines(os.Stdin))
+	var updated = applyUpdate(book, importPath)
+	reinstallCommands(book, importPath, updated)
+}
+
+func applyUpdate(book playbook, importPath string) bool {
 	defer cleanupVendorGOPATH(maybeVendorGOPATH(importPath))
 	var gopath = filepath.SplitList(build.Default.GOPATH)[0]
-	var book = buildPlaybook(readDiffLines(os.Stdin))
 
 	var updated = false
 	for _, cmd := range book.library {
@@ -67,7 +72,10 @@ func runApply(cmd *Command, args []string) {
 			}
 		}
 	}
+	return updated
+}
 
+func reinstallCommands(book playbook, importPath string, updated bool) {
 	// Collect the import paths for all added commands.
 	var cmds []string
 	for _, cmd := range book.cmd {
