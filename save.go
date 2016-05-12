@@ -138,15 +138,23 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given import path (and subpackages) and commands.
 func getAllDeps(importPath string, cmds []string) []string {
+	// Filter out any cmds under the importPath (because those are handled as a side effect)
+	var filteredCmds []string
+	for _, cmd := range cmds {
+		if !strings.HasPrefix(cmd, importPath) {
+			filteredCmds = append(filteredCmds, cmd)
+		}
+	}
+
 	// Get a set of transitive dependencies (package import paths) for the
 	// specified package.
-	var pkgExprs = append([]string{path.Join(importPath, "...")}, cmds...)
+	var pkgExprs = append([]string{path.Join(importPath, "...")}, filteredCmds...)
 	var output = mustRun("go",
 		append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, pkgExprs...)...)
 	var deps = filterPackages(output, nil) // filter out standard library
 
 	// Add the command packages.
-	for _, cmd := range cmds {
+	for _, cmd := range filteredCmds {
 		deps[cmd] = struct{}{}
 	}
 
