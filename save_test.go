@@ -100,8 +100,6 @@ var saveTests = []saveTest{
 
 	// the following should be included:
 	// - package's tests' dependencies
-	//
-	// perhaps also higher degree test dependencies
 	// - package's dependencies' tests' dependencies
 	// - package's tests' dependencies' tests' dependencies
 	{
@@ -134,8 +132,8 @@ var saveTests = []saveTest{
 		[]string{
 			"github.com/test/p2",
 			"github.com/test/p3",
-			// "github.com/test/p4",  // implement?
-			// "github.com/test/p5",
+			"github.com/test/p4",
+			"github.com/test/p5",
 		},
 	},
 
@@ -218,7 +216,7 @@ func TestSave(t *testing.T) {
 func runSaveTest(t *testing.T, test saveTest) {
 	var gopath, err = ioutil.TempDir("", "gopath")
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	t.Log(gopath)
 	defer os.RemoveAll(gopath)
@@ -228,15 +226,14 @@ func runSaveTest(t *testing.T, test saveTest) {
 		var dir = filepath.Join(gopath, "src", pkg.importPath)
 		err = os.MkdirAll(dir, 0777)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = strings.TrimSuffix(dir, "/subpkg")
 		gitinit, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Logf("git init: %v\noutput: %v", err, string(gitinit))
-			t.FailNow()
+			t.Fatalf("git init: %v\noutput: %v", err, string(gitinit))
 		}
 		var pkgdir = filepath.Join(gopath, "src", pkg.importPath)
 		for _, file := range pkg.files {
@@ -245,13 +242,13 @@ func runSaveTest(t *testing.T, test saveTest) {
 			if filedir != "." {
 				err = os.MkdirAll(filepath.Join(pkgdir, filedir), 0777)
 				if err != nil {
-					panic(err)
+					t.Fatal(err)
 				}
 			}
 
 			var f, err = os.Create(filepath.Join(pkgdir, filedir, filename))
 			if err != nil {
-				panic(err)
+				t.Fatal(err)
 			}
 			var pkgName = pkg.importPath[strings.LastIndex(pkg.importPath, "/")+1:]
 			if file.testPkg {
@@ -270,16 +267,14 @@ import (
 		cmd.Dir = dir
 		gitadd, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Logf("git add: %v\noutput: %v", err, string(gitadd))
-			t.FailNow()
+			t.Fatalf("git add: %v\noutput: %v", err, string(gitadd))
 		}
 
 		cmd = exec.Command("git", "commit", "-am", "initial")
 		cmd.Dir = dir
 		gitcommit, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Logf("git commit: %v\noutput: %v", err, string(gitcommit))
-			t.FailNow()
+			t.Fatalf("git commit: %v\noutput: %v", err, string(gitcommit))
 		}
 	}
 
