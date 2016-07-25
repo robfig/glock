@@ -135,9 +135,10 @@ func glockfileWriter(importPath string, n bool) io.WriteCloser {
 		return os.Stdout
 	}
 
-	var f, err = os.Create(glockFilename(importPath))
+	fileName := glockFilename(importPath)
+	var f, err = os.Create(fileName)
 	if err != nil {
-		perror(fmt.Errorf("error creating %s: %v", glockFilename, err))
+		perror(fmt.Errorf("error creating %s: %v", fileName, err))
 	}
 	return f
 }

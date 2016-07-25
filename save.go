@@ -2,17 +2,19 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"go/build"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
+
+	"golang.org/x/tools/refactor/importgraph"
 )
 
 var cmdSave = &Command{
@@ -138,52 +140,59 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given import path (and subpackages) and commands.
 func getAllDeps(importPath string, cmds []string) []string {
-	// Filter out any cmds under the importPath (because those are handled as a side effect)
-	var filteredCmds []string
-	for _, cmd := range cmds {
-		if !strings.HasPrefix(cmd, importPath) {
-			filteredCmds = append(filteredCmds, cmd)
+	deps := map[string]struct{}{}
+	roots := map[string]struct{}{
+		importPath: {},
+	}
+	subpackagePrefix := importPath + "/"
+
+	// Add the command packages. Note that external command packages are
+	// considered dependencies.
+	for _, pkg := range cmds {
+		roots[pkg] = struct{}{}
+
+		if !strings.HasPrefix(pkg, subpackagePrefix) {
+			deps[pkg] = struct{}{}
 		}
 	}
 
-	// Get a set of transitive dependencies (package import paths) for the
-	// specified package.
-	var pkgExprs = append([]string{path.Join(importPath, "...")}, filteredCmds...)
-	var output = mustRun("go",
-		append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, pkgExprs...)...)
-	var deps = filterPackages(output, nil) // filter out standard library
+	for _, useAllFiles := range []bool{false, true} {
+		buildContext := build.Default
+		buildContext.CgoEnabled = true
+		buildContext.UseAllFiles = useAllFiles
 
-	// Add the command packages.
-	for _, cmd := range filteredCmds {
-		deps[cmd] = struct{}{}
-	}
+		forward, _, errs := importgraph.Build(&buildContext)
+		for pkg, err := range errs {
+			// Lots of errors because of UseAllFiles.
+			if !useAllFiles {
+				log.Printf("error loading package %s: %v", pkg, err)
+			}
+		}
 
-	// List dependencies of test files, which are not included in the go list .Deps
-	// Also, ignore any dependencies that are already covered.
-	var testImportOutput = mustRun("go",
-		append([]string{"list", "-f", `{{join .TestImports "\n"}}{{"\n"}}{{join .XTestImports "\n"}}`}, pkgExprs...)...)
-	var testImmediateDeps = filterPackages(testImportOutput, deps) // filter out stdlib and existing deps
-	for dep := range testImmediateDeps {
-		deps[dep] = struct{}{}
-	}
+		// Add the subpackages.
+		for pkg := range forward {
+			if strings.HasPrefix(pkg, subpackagePrefix) {
+				roots[pkg] = struct{}{}
+			}
+		}
 
-	// We have to get the transitive deps of the remaining test imports.
-	// NOTE: this will return the dependencies of the libraries imported by tests
-	// and not imported by main code.  This output does not include the imports themselves.
-	if len(testImmediateDeps) > 0 {
-		var testDepOutput = mustRun("go", append([]string{"list", "-f", `{{range .Deps}}{{.}}{{"\n"}}{{end}}`}, setToSlice(testImmediateDeps)...)...)
-		var allTestDeps = filterPackages(testDepOutput, deps) // filter out standard library and existing deps
-		for dep := range allTestDeps {
-			deps[dep] = struct{}{}
+		// Get the reflexive transitive closure for all packages of interest.
+		for pkg := range forward.Search(setToSlice(roots)...) {
+			// Exclude our roots. Note that commands are special-cased above.
+			if _, ok := roots[pkg]; ok {
+				continue
+			}
+			slash := strings.IndexByte(pkg, '/')
+			stdLib := slash == -1 || strings.IndexByte(pkg[:slash], '.') == -1
+			// Exclude the standard library.
+			if stdLib {
+				continue
+			}
+			deps[pkg] = struct{}{}
 		}
 	}
 
-	// Return everything in deps
-	var result []string
-	for dep := range deps {
-		result = append(result, dep)
-	}
-	return result
+	return setToSlice(deps)
 }
 
 func run(name string, args ...string) ([]byte, error) {
@@ -194,45 +203,12 @@ func run(name string, args ...string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
-// mustRun is a wrapper for exec.Command(..).CombinedOutput() that provides helpful
-// error message and exits on failure.
-func mustRun(name string, args ...string) []byte {
-	var output, err = run(name, args...)
-	if err != nil {
-		perror(fmt.Errorf("%v %v\n%v\nError: %v", name, args, string(output), err))
-	}
-	return output
-}
-
 func setToSlice(set map[string]struct{}) []string {
 	var slice []string
 	for k := range set {
 		slice = append(slice, k)
 	}
 	return slice
-}
-
-// filterPackages accepts the output of a go list comment (one package per line)
-// and returns a set of package import paths, excluding standard library.
-// Additionally, any packages present in the "exclude" set will be excluded.
-func filterPackages(output []byte, exclude map[string]struct{}) map[string]struct{} {
-	var scanner = bufio.NewScanner(bytes.NewReader(output))
-	var deps = map[string]struct{}{}
-	for scanner.Scan() {
-		var (
-			pkg    = scanner.Text()
-			slash  = strings.Index(pkg, "/")
-			stdLib = slash == -1 || strings.Index(pkg[:slash], ".") == -1
-		)
-		if stdLib {
-			continue
-		}
-		if _, ok := exclude[pkg]; ok {
-			continue
-		}
-		deps[pkg] = struct{}{}
-	}
-	return deps
 }
 
 // readCmds returns the list of cmds declared in the given glockfile.
