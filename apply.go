@@ -54,7 +54,7 @@ func runApply(cmd *Command, args []string) {
 			run("go", "get", "-u", "-d", path.Join(cmd.importPath, "..."))
 
 			// update that dependency
-			var repo, err = repoRootForImportPath(cmd.importPath)
+			var repo, err = glockRepoRootForImportPath(cmd.importPath)
 			if err != nil {
 				fmt.Println("error determining repo root for", cmd.importPath, err)
 				continue
