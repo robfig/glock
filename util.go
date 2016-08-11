@@ -42,28 +42,16 @@ func managedRepoRoot(importPath string) (*managedRepo, error) {
 // This is done to support repos with non-go-get friendly names.
 // Also, returns an error if it doesn't exist (e.g. it needs to be go gotten).
 func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
-	var pkg, err = build.Import(importPath, "", build.FindOnly)
+	pkg, err := build.Import(importPath, "", build.FindOnly)
 	if err != nil {
 		return nil, err
 	}
 
-	rr, err := repoRootForImportPath(importPath)
-	if err == nil {
-		// it may not exist, even with err == nil
-		_, err = os.Stat(pkg.Dir)
-		if err != nil {
-			return nil, err
-		}
-		return rr, nil
-	}
-
-	var dir = pkg.ImportPath
-	for len(dir) > 1 {
+	for dir := pkg.ImportPath; len(dir) > 1; dir = filepath.Dir(dir) {
 		rr, err := fastRepoRoot(dir)
 		if err == nil {
 			return rr, nil
 		}
-		dir = filepath.Dir(dir)
 	}
 
 	return nil, fmt.Errorf("no version control directory found for %q", importPath)
@@ -73,7 +61,7 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 // which VCS to use for the given import path.
 // If none are found, an error is returned.
 func fastRepoRoot(rootImportPath string) (*repoRoot, error) {
-	var pkg, err = build.Import(rootImportPath, "", build.FindOnly)
+	pkg, err := build.Import(rootImportPath, "", build.FindOnly)
 	if err != nil {
 		return nil, err
 	}
