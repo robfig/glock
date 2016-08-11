@@ -42,6 +42,10 @@ var (
 	disabled = func(args ...interface{}) string { return fmt.Sprint(args...) }
 )
 
+// Running too many syncs at once can exhaust file descriptor limits.
+// Empirically, ~90 is enough to hit the macOS default limit of 256.
+const maxConcurrentSyncs = 25
+
 func init() {
 	cmdSync.Run = runSync // break init loop
 }
@@ -65,6 +69,8 @@ func runSync(cmd *Command, args []string) {
 		critical = disabled
 	}
 
+	// Semaphore to limit concurrent sync operations
+	var sem = make(chan struct{}, maxConcurrentSyncs)
 	var chans []chan string
 	var cmds []string
 	var scanner = bufio.NewScanner(glockfile)
@@ -75,9 +81,13 @@ func runSync(cmd *Command, args []string) {
 			continue
 		}
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
-		var ch = make(chan string)
+		var ch = make(chan string, 1)
 		chans = append(chans, ch)
-		go syncPkg(ch, importPath, expectedRevision)
+		sem <- struct{}{}
+		go func() {
+			syncPkg(ch, importPath, expectedRevision)
+			<-sem
+		}()
 	}
 	if scanner.Err() != nil {
 		perror(scanner.Err())
