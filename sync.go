@@ -69,9 +69,10 @@ func runSync(cmd *Command, args []string) {
 		critical = disabled
 	}
 
-	// Semaphore to limit concurrent sync operations
-	var sem = make(chan struct{}, maxConcurrentSyncs)
-	var chans []chan string
+	type pkgSpec struct {
+		importPath, expectedRevision string
+	}
+	var pkgSpecs []pkgSpec
 	var cmds []string
 	var scanner = bufio.NewScanner(glockfile)
 	for scanner.Scan() {
@@ -81,16 +82,41 @@ func runSync(cmd *Command, args []string) {
 			continue
 		}
 		var importPath, expectedRevision = fields[0], truncate(fields[1])
-		var ch = make(chan string, 1)
-		chans = append(chans, ch)
-		sem <- struct{}{}
-		go func() {
-			syncPkg(ch, importPath, expectedRevision)
-			<-sem
-		}()
+		pkgSpecs = append(pkgSpecs, pkgSpec{importPath, expectedRevision})
 	}
 	if scanner.Err() != nil {
 		perror(scanner.Err())
+	}
+
+	getArgs := []string{"get", "-v", "-d"}
+	for _, pkgSpec := range pkgSpecs {
+		getArgs = append(getArgs, pkgSpec.importPath)
+	}
+
+	// `go get` all the packages at once (rather than in parallel) since it is
+	// unsafe to invoke `go get` concurrently. `go get` is a no-op if packages
+	// are already present.
+	//
+	// See https://groups.google.com/forum/#!topic/golang-nuts/2BquR7EpMJs
+	// which suggests using golang.org/x/tools/go/vcs instead of shelling out
+	// to `go get`; unfortunately, it is not possible to sync to a specific
+	// ref using the API exposed by that package at this time.
+	getOutput, getErr := run("go", getArgs...)
+
+	// Semaphore to limit concurrent sync operations
+	var sem = make(chan struct{}, maxConcurrentSyncs)
+	var chans []chan string
+	for _, pkgSpec := range pkgSpecs {
+		var ch = make(chan string, 1)
+		chans = append(chans, ch)
+
+		pkgSpec := pkgSpec
+
+		go func() {
+			sem <- struct{}{}
+			syncPkg(ch, pkgSpec.importPath, pkgSpec.expectedRevision, string(getOutput), getErr)
+			<-sem
+		}()
 	}
 
 	for _, ch := range chans {
@@ -125,37 +151,29 @@ func truncate(rev string) string {
 	return rev
 }
 
-func syncPkg(ch chan<- string, importPath, expectedRevision string) {
+func syncPkg(ch chan<- string, importPath, expectedRevision, getOutput string, getErr error) {
 	var importDir = filepath.Join(gopath(), "src", importPath)
 	var status bytes.Buffer
 	defer func() { ch <- status.String() }()
 
 	// Try to find the repo.
-	var getOutput []byte
 	var repo, err = fastRepoRoot(importPath)
 	if err != nil {
-		// go get it in case it doesn't exist. (no-op if it does exist)
-		// (ignore failures due to "no buildable files" or build errors in the package.)
-		var getErr error
-		getOutput, getErr = run("go", "get", "-v", "-d", importPath)
-		repo, err = fastRepoRoot(importPath)
-		if err != nil {
-			var getStatus = "(success)"
-			if getErr != nil {
-				getStatus = string(getOutput) + getErr.Error()
-			}
-			perror(fmt.Errorf(`failed to get: %s
+		var getStatus = "(success)"
+		if getErr != nil {
+			getStatus = string(getOutput) + getErr.Error()
+		}
+		perror(fmt.Errorf(`failed to get: %s
 
 > go get -v -d %s
 %s
 
 > import %s
 %s`, importPath, importPath, getStatus, importPath, err))
-		}
 	}
 
 	var maybeGot = ""
-	if bytes.Contains(getOutput, []byte("(download)")) {
+	if strings.Contains(getOutput, importPath+" (download)") {
 		maybeGot = warning("get ")
 	}
 
