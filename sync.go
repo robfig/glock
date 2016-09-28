@@ -152,7 +152,7 @@ func truncate(rev string) string {
 }
 
 func syncPkg(ch chan<- string, importPath, expectedRevision, getOutput string, getErr error) {
-	var importDir = filepath.Join(gopath(), "src", importPath)
+	var importDir = filepath.Join(gopaths()[0], "src", importPath)
 	var status bytes.Buffer
 	defer func() { ch <- status.String() }()
 
@@ -177,11 +177,12 @@ func syncPkg(ch chan<- string, importPath, expectedRevision, getOutput string, g
 		maybeGot = warning("get ")
 	}
 
-	actualRevision, err := repo.vcs.head(filepath.Join(gopath(), "src", repo.root), repo.repo)
+	actualRevision, err := repo.vcs.head(repo.path, repo.repo)
 	if err != nil {
 		fmt.Fprintln(&status, "error determining revision of", repo.root, err)
 		perror(err)
 	}
+
 	actualRevision = truncate(actualRevision)
 	fmt.Fprintf(&status, "%-50.49s %-12.12s\t", importPath, actualRevision)
 	if expectedRevision == actualRevision {

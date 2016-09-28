@@ -344,13 +344,16 @@ func vcsForDir(p *build.Package) (vcs *vcsCmd, root string, err error) {
 	return nil, "", fmt.Errorf("directory %q is not using a known version control system", origDir)
 }
 
-// repoRoot represents a version control system, a repo, and a root of
-// where to put it on disk.
+// repoRoot represents a version control system, a repo, a path, and a root
+// that is the import path
 type repoRoot struct {
 	vcs *vcsCmd
 
 	// repo is the repository URL, including scheme
 	repo string
+
+	// path is the path of where the repo is to be found on disk
+	path string
 
 	// root is the import path corresponding to the root of the
 	// repository
