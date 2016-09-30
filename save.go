@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -69,9 +68,7 @@ func outputCmds(w io.Writer, cmds []string) {
 
 func outputDeps(w io.Writer, depRoots []*repoRoot) {
 	for _, repoRoot := range depRoots {
-		revision, err := repoRoot.vcs.head(
-			path.Join(gopath(), "src", repoRoot.root),
-			repoRoot.repo)
+		revision, err := repoRoot.vcs.head(repoRoot.path, repoRoot.repo)
 		if err != nil {
 			perror(err)
 		}
@@ -216,7 +213,16 @@ func setToSlice(set map[string]struct{}) []string {
 //   cmd code.google.com/p/go.tools/cmd/godoc
 //   cmd github.com/robfig/glock
 func readCmds(importPath string) []string {
-	var glockfile, err = os.Open(glockFilename(importPath))
+	var (
+		glockfile io.ReadCloser
+		err       error
+	)
+	for _, gopath := range gopaths() {
+		glockfile, err = os.Open(glockFilename(gopath, importPath))
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

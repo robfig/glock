@@ -74,6 +74,7 @@ func fastRepoRoot(rootImportPath string) (*repoRoot, error) {
 	return &repoRoot{
 		vcs:  vcs,
 		repo: "",
+		path: pkg.Dir,
 		root: rootImportPath,
 	}, nil
 }
@@ -98,12 +99,12 @@ func lookVCS(dir string) (*vcsCmd, error) {
 	return nil, fmt.Errorf("no repo found: %s", dir)
 }
 
-func gopath() string {
-	return filepath.SplitList(build.Default.GOPATH)[0]
+func gopaths() []string {
+	return filepath.SplitList(build.Default.GOPATH)
 }
 
-func glockFilename(importPath string) string {
-	return path.Join(gopath(), "src", importPath, "GLOCKFILE")
+func glockFilename(gopath, importPath string) string {
+	return path.Join(gopath, "src", importPath, "GLOCKFILE")
 }
 
 func glockfileReader(importPath string, n bool) io.ReadCloser {
@@ -111,10 +112,20 @@ func glockfileReader(importPath string, n bool) io.ReadCloser {
 		return os.Stdin
 	}
 
-	var glockfile, err = os.Open(glockFilename(importPath))
+	var (
+		glockfile io.ReadCloser
+		err       error
+	)
+	for _, gopath := range gopaths() {
+		glockfile, err = os.Open(glockFilename(gopath, importPath))
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		perror(err)
 	}
+
 	return glockfile
 }
 
@@ -123,7 +134,7 @@ func glockfileWriter(importPath string, n bool) io.WriteCloser {
 		return os.Stdout
 	}
 
-	fileName := glockFilename(importPath)
+	fileName := glockFilename(gopaths()[0], importPath)
 	var f, err = os.Create(fileName)
 	if err != nil {
 		perror(fmt.Errorf("error creating %s: %v", fileName, err))
