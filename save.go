@@ -137,27 +137,29 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given import path (and subpackages) and commands.
 func getAllDeps(importPath string, cmds []string) []string {
-	deps := map[string]struct{}{}
-	roots := map[string]struct{}{
-		importPath: {},
-	}
 	subpackagePrefix := importPath + "/"
 
-	// Add the command packages. Note that external command packages are
-	// considered dependencies.
-	for _, pkg := range cmds {
-		roots[pkg] = struct{}{}
-
-		if !strings.HasPrefix(pkg, subpackagePrefix) {
-			deps[pkg] = struct{}{}
-		}
-	}
-
+	var depsSlice []string
 	for _, useAllFiles := range []bool{false, true} {
 		printLoadingError := func(path string, err error) {
 			if err != nil && !useAllFiles {
 				// Lots of errors because of UseAllFiles.
 				log.Printf("error loading package %s: %s", path, err)
+			}
+		}
+
+		deps := map[string]struct{}{}
+		roots := map[string]struct{}{
+			importPath: {},
+		}
+
+		// Add the command packages. Note that external command packages are
+		// considered dependencies.
+		for _, pkg := range cmds {
+			roots[pkg] = struct{}{}
+
+			if !strings.HasPrefix(pkg, subpackagePrefix) {
+				deps[pkg] = struct{}{}
 			}
 		}
 
@@ -217,9 +219,11 @@ func getAllDeps(importPath string, cmds []string) []string {
 			addTransitiveClosure(path)
 		}
 		addTransitiveClosure(importPath)
+
+		depsSlice = append(depsSlice, setToSlice(deps)...)
 	}
 
-	return setToSlice(deps)
+	return depsSlice
 }
 
 func run(name string, args ...string) ([]byte, error) {
