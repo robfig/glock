@@ -100,6 +100,7 @@ var saveTests = []saveTest{
 
 	// the following should be included:
 	// - package's tests' dependencies
+	// the following should be excluded:
 	// - package's dependencies' tests' dependencies
 	// - package's tests' dependencies' tests' dependencies
 	{
@@ -132,8 +133,6 @@ var saveTests = []saveTest{
 		[]string{
 			"github.com/test/p2",
 			"github.com/test/p3",
-			"github.com/test/p4",
-			"github.com/test/p5",
 		},
 	},
 

@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/tools/refactor/importgraph"
+	"golang.org/x/tools/go/buildutil"
 )
 
 var cmdSave = &Command{
@@ -137,59 +137,93 @@ func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given import path (and subpackages) and commands.
 func getAllDeps(importPath string, cmds []string) []string {
-	deps := map[string]struct{}{}
-	roots := map[string]struct{}{
-		importPath: {},
-	}
 	subpackagePrefix := importPath + "/"
 
-	// Add the command packages. Note that external command packages are
-	// considered dependencies.
-	for _, pkg := range cmds {
-		roots[pkg] = struct{}{}
-
-		if !strings.HasPrefix(pkg, subpackagePrefix) {
-			deps[pkg] = struct{}{}
-		}
-	}
-
+	var depsSlice []string
 	for _, useAllFiles := range []bool{false, true} {
+		printLoadingError := func(path string, err error) {
+			if err != nil && !useAllFiles {
+				// Lots of errors because of UseAllFiles.
+				log.Printf("error loading package %s: %s", path, err)
+			}
+		}
+
+		deps := map[string]struct{}{}
+		roots := map[string]struct{}{
+			importPath: {},
+		}
+
+		// Add the command packages. Note that external command packages are
+		// considered dependencies.
+		for _, pkg := range cmds {
+			roots[pkg] = struct{}{}
+
+			if !strings.HasPrefix(pkg, subpackagePrefix) {
+				deps[pkg] = struct{}{}
+			}
+		}
+
 		buildContext := build.Default
 		buildContext.CgoEnabled = true
 		buildContext.UseAllFiles = useAllFiles
 
-		forward, _, errs := importgraph.Build(&buildContext)
-		for pkg, err := range errs {
-			// Lots of errors because of UseAllFiles.
-			if !useAllFiles {
-				log.Printf("error loading package %s: %v", pkg, err)
-			}
-		}
-
 		// Add the subpackages.
-		for pkg := range forward {
-			if strings.HasPrefix(pkg, subpackagePrefix) {
-				roots[pkg] = struct{}{}
+		for path := range buildutil.ExpandPatterns(&buildContext, []string{subpackagePrefix + "..."}) {
+			_, err := buildContext.Import(path, "", 0)
+			if _, ok := err.(*build.NoGoError); ok {
+				continue
+			}
+			printLoadingError(path, err)
+			roots[path] = struct{}{}
+		}
+
+		var addTransitiveClosure func(string)
+		addTransitiveClosure = func(path string) {
+			pkg, err := buildContext.Import(path, "", 0)
+			printLoadingError(path, err)
+
+			importPaths := append([]string(nil), pkg.Imports...)
+			if _, ok := roots[path]; ok {
+				importPaths = append(importPaths, pkg.TestImports...)
+				importPaths = append(importPaths, pkg.XTestImports...)
+			}
+
+			for _, path := range importPaths {
+				if path == "C" {
+					continue // "C" is fake
+				}
+
+				// Resolve the import path relative to the importing package.
+				if bp2, _ := buildContext.Import(path, pkg.Dir, build.FindOnly); bp2 != nil {
+					path = bp2.ImportPath
+				}
+
+				// Exclude our roots. Note that commands are special-cased above.
+				if _, ok := roots[path]; ok {
+					continue
+				}
+				slash := strings.IndexByte(path, '/')
+				stdLib := slash == -1 || strings.IndexByte(path[:slash], '.') == -1
+				// Exclude the standard library.
+				if stdLib {
+					continue
+				}
+				if _, ok := deps[path]; !ok {
+					deps[path] = struct{}{}
+					addTransitiveClosure(path)
+				}
 			}
 		}
 
-		// Get the reflexive transitive closure for all packages of interest.
-		for pkg := range forward.Search(setToSlice(roots)...) {
-			// Exclude our roots. Note that commands are special-cased above.
-			if _, ok := roots[pkg]; ok {
-				continue
-			}
-			slash := strings.IndexByte(pkg, '/')
-			stdLib := slash == -1 || strings.IndexByte(pkg[:slash], '.') == -1
-			// Exclude the standard library.
-			if stdLib {
-				continue
-			}
-			deps[pkg] = struct{}{}
+		for path := range roots {
+			addTransitiveClosure(path)
 		}
+		addTransitiveClosure(importPath)
+
+		depsSlice = append(depsSlice, setToSlice(deps)...)
 	}
 
-	return setToSlice(deps)
+	return depsSlice
 }
 
 func run(name string, args ...string) ([]byte, error) {
