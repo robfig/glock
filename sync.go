@@ -163,6 +163,14 @@ func syncPkg(ch chan<- string, importPath, expectedRevision string) {
 
 	fmt.Fprintln(&status, "["+maybeGot+warning(fmt.Sprintf("checkout %-12.12s", expectedRevision))+"]")
 
+	// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
+	// which returns error if the revision does not correspond to a tag or head.  If we receive an error,
+	// it might be because the local repository is behind the remote, so don't error immediately.
+	err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
+	if err == nil {
+		return
+	}
+
 	// If we didn't just get this package, download it now to update.
 	if maybeGot == "" {
 		err = repo.vcs.download(importDir)
@@ -171,8 +179,9 @@ func syncPkg(ch chan<- string, importPath, expectedRevision string) {
 		}
 	}
 
-	// Checkout the expected revision.  Don't use tagSync because it runs "git show-ref"
-	// which returns error if the revision does not correspond to a tag or head.
+	// Checkout the expected revision, which is expected to be there now that we're up-to-date with the remote.
+	// Don't use tagSync because it runs "git show-ref" which returns error if the revision does not correspond to a
+	// tag or head.
 	err = repo.vcs.run(importDir, repo.vcs.tagSyncCmd, "tag", expectedRevision)
 	if err != nil {
 		perror(err)
