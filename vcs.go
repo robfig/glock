@@ -94,7 +94,7 @@ var vcsGit = &vcsCmd{
 	cmd:  "git",
 
 	createCmd:   "clone {repo} {dir}",
-	downloadCmd: "pull --ff-only",
+	downloadCmd: "pull --ff-only --tags",
 
 	tagCmd: []tagCmd{
 		// tags/xxx matches a git tag named xxx
