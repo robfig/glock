@@ -134,6 +134,32 @@ func (p byImportPath) Len() int           { return len(p) }
 func (p byImportPath) Less(i, j int) bool { return p[i].root < p[j].root }
 func (p byImportPath) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+var majorVersionComponent = regexp.MustCompile(`v[\d]+`)
+
+// pathWithoutMajorVersion returns path with the 1st major version /component
+// (if any) stripped out. If one was found, the 2nd return value is true.
+func pathWithoutMajorVersion(path string) (string, bool) {
+	parts := strings.Split(path, "/")
+	for idx, part := range strings.Split(path, "/") {
+		if majorVersionComponent.MatchString(part) {
+			return strings.Join(append(parts[:idx], parts[idx+1:]...), "/"), true
+		}
+	}
+	return path, false
+}
+
+// tryImport attempts to import the path as-is and, if it fails to be found and
+// path contains a major module version, reattempts with the version removed.
+func tryImport(ctx build.Context, path, srcDir string, mode build.ImportMode) (*build.Package, error) {
+	pkg, err := ctx.Import(path, srcDir, mode)
+	if err != nil && strings.HasPrefix(err.Error(), "cannot find package ") {
+		if versionlessPath, ok := pathWithoutMajorVersion(path); ok {
+			return ctx.Import(versionlessPath, srcDir, mode)
+		}
+	}
+	return pkg, err
+}
+
 // getAllDeps returns a slice of package import paths for all dependencies
 // (including test dependencies) of the given import path (and subpackages) and commands.
 func getAllDeps(importPath string, cmds []string) []string {
@@ -169,7 +195,7 @@ func getAllDeps(importPath string, cmds []string) []string {
 
 		// Add the subpackages.
 		for path := range buildutil.ExpandPatterns(&buildContext, []string{subpackagePrefix + "..."}) {
-			_, err := buildContext.Import(path, "", 0)
+			_, err := tryImport(buildContext, path, "", 0)
 			if _, ok := err.(*build.NoGoError); ok {
 				continue
 			}
@@ -179,7 +205,7 @@ func getAllDeps(importPath string, cmds []string) []string {
 
 		var addTransitiveClosure func(string)
 		addTransitiveClosure = func(path string) {
-			pkg, err := buildContext.Import(path, "", 0)
+			pkg, err := tryImport(buildContext, path, "", 0)
 			printLoadingError(path, err)
 
 			importPaths := append([]string(nil), pkg.Imports...)
@@ -194,7 +220,7 @@ func getAllDeps(importPath string, cmds []string) []string {
 				}
 
 				// Resolve the import path relative to the importing package.
-				if bp2, _ := buildContext.Import(path, pkg.Dir, build.FindOnly); bp2 != nil {
+				if bp2, _ := tryImport(buildContext, path, pkg.Dir, build.FindOnly); bp2 != nil {
 					path = bp2.ImportPath
 				}
 

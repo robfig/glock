@@ -204,6 +204,39 @@ var saveTests = []saveTest{
 			"github.com/test/p2",
 		},
 	},
+
+	{
+		"module major versions",
+		[]pkg{{
+			"github.com/test/p1",
+			[]file{
+				{"foo.go", false, []string{"github.com/test/p2/v2"}},
+				{"foo_test.go", false, []string{"github.com/test/p3/v2"}},
+			}}, {
+			"github.com/test/p2",
+			[]file{
+				{"foo.go", false, []string{"github.com/test/p4/v2/subpkg"}},
+			}}, {
+			"github.com/test/p3",
+			[]file{
+				{"v2/foo.go", false, []string{"os"}},
+			}}, {
+			"github.com/test/p4",
+			[]file{
+				{"subpkg/foo.go", false, []string{"github.com/test/p5"}},
+			}}, {
+			"github.com/test/p5",
+			[]file{
+				{"foo.go", false, []string{"os"}},
+			}},
+		},
+		[]string{
+			"github.com/test/p2",
+			"github.com/test/p3",
+			"github.com/test/p4",
+			"github.com/test/p5",
+		},
+	},
 }
 
 func TestSave(t *testing.T) {
@@ -312,6 +345,29 @@ import (
 		if _, ok := actual[importPath]; !ok {
 			t.Errorf("%v: expected: %v got:\n%v", test.name, test.output, output)
 			return
+		}
+	}
+}
+
+func TestPathWithoutMajorVersion(t *testing.T) {
+	tests := []struct{
+		path         string
+		expectedPath string
+		expectedBool bool
+	}{
+		{"github.com/p1", "github.com/p1", false},
+		{"github.com/p1/v1", "github.com/p1", true},
+		{"github.com/p2/p3", "github.com/p2/p3", false},
+		{"github.com/p1/v2/p3", "github.com/p1/p3", true},
+	}
+
+	for _, test := range tests {
+		actualPath, actualBool := pathWithoutMajorVersion(test.path)
+		if actualPath != test.expectedPath {
+			t.Errorf("%v: expected: %v got: %v", test.path, test.expectedPath, actualPath)
+		}
+		if actualBool != test.expectedBool {
+			t.Errorf("%v: expected: %v got: %v", test.path, test.expectedBool, actualBool)
 		}
 	}
 }
