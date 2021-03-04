@@ -141,3 +141,30 @@ func glockfileWriter(importPath string, n bool) io.WriteCloser {
 	}
 	return f
 }
+
+// sameFile returns true if path1 and path2 refer to the same file. If either
+// are symlinks, then the comparison is done after the links are followed.
+func sameFile(path1, path2 string) (bool, error) {
+		info1, err := os.Stat(path1)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+
+		info2, err := os.Stat(path2)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+
+		return os.SameFile(info1, info2), nil
+}
+
+// debug prints args to STDERR if in verbose mode.
+func debug(args ...interface{}) {
+	if buildV {
+		fmt.Fprintln(os.Stderr, args...)
+	}
+}

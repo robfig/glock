@@ -9,7 +9,9 @@ import (
 	"text/template"
 )
 
-var buildV bool // Used in vcs.go and http.go to print detailed stuff about go get
+// Used in vcs.go and http.go to print detailed stuff about go get.
+// Also used to enable output from the debug() function declared in util.go.
+var buildV bool
 
 type Command struct {
 	Run       func(cmd *Command, args []string)
