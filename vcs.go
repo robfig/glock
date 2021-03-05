@@ -104,8 +104,8 @@ var vcsGit = &vcsCmd{
 	tagLookupCmd: []tagCmd{
 		{"show-ref tags/{tag} origin/{tag}", `((?:tags|origin)/\S+)$`},
 	},
-	tagSyncCmd:     "checkout {tag}",
-	tagSyncDefault: "checkout master",
+	tagSyncCmd:     "checkout -f {tag} --",
+	tagSyncDefault: "checkout -f master --",
 
 	scheme:  []string{"git", "https", "http", "git+ssh"},
 	pingCmd: "ls-remote {scheme}://{repo}",

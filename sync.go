@@ -5,10 +5,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/agtorre/gocolorize"
+	"golang.org/x/mod/modfile"
 )
 
 var cmdSync = &Command{
@@ -40,6 +44,8 @@ var (
 	critical = gocolorize.NewColor("red").Paint
 
 	disabled = func(args ...interface{}) string { return fmt.Sprint(args...) }
+
+	majorVersionSuffix = regexp.MustCompile(`/v[\d]+$`)
 )
 
 // Running too many syncs at once can exhaust file descriptor limits.
@@ -156,6 +162,12 @@ func syncPkg(ch chan<- string, importPath, expectedRevision, getOutput string, g
 	var status bytes.Buffer
 	defer func() { ch <- status.String() }()
 
+	defer func() {
+		if err := maybeLinkModulePath(importPath); err != nil {
+			perror(err)
+		}
+	}()
+
 	// Try to find the repo.
 	var repo, err = fastRepoRoot(importPath)
 	if err != nil {
@@ -215,4 +227,76 @@ func syncPkg(ch chan<- string, importPath, expectedRevision, getOutput string, g
 	if err != nil {
 		perror(err)
 	}
+}
+
+// maybeLinkModulePath creates a self-referencing major-release symlink in the
+// specified import path, if the import contains a go.mod whose module name
+// includes a major release suffix.
+//
+// For example, suppose rsc.io/quote is imported at its v2.0.0 tag; because this
+// version contains a go.mod that specifies the module name as rsc.io/quote/v2,
+// a symlink (rsc.io/quote/v2 => rsc.io/quote) is created. This allows code to
+// import the more go-module-friendly "rsc.io/quote/v2" path instead of the
+// legacy "rsc.io/quote" path.
+func maybeLinkModulePath(importPath string) error {
+	var importDir = filepath.Join(gopaths()[0], "src", importPath)
+
+	goModPath := filepath.Join(importDir, "go.mod")
+	data, err := ioutil.ReadFile(goModPath)
+	if os.IsNotExist(err) {
+		// No go.mod, so nothing to do.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	goModFile, err := modfile.ParseLax(goModPath, data, nil)
+	if err != nil {
+		return err
+	}
+
+	// Check if the module doesn't point to an implicit major release,
+	// in which case, do nothing except maybe warn if the GLOCKFILE import path
+	// doesn't match the module name in its go.mod.
+	if !majorVersionSuffix.MatchString(goModFile.Module.Mod.Path) {
+		if importPath != goModFile.Module.Mod.Path {
+			debug(warning("[WARN]"), "import path", importPath, "conflicts with go.mod path", goModFile.Module.Mod.Path)
+		}
+		return nil
+	}
+
+	// If the version-less module path doesn't match the import path, creating
+	// the versioned symlink won't help, so warn & return.
+	moduleBasePath, ver := filepath.Split(goModFile.Module.Mod.Path)
+	moduleBasePath = strings.TrimRight(moduleBasePath, string(filepath.Separator))
+	if importPath != moduleBasePath {
+		debug(warning("[WARN]"), "import path", importPath, "conflicts with go.mod path", goModFile.Module.Mod.Path)
+		return nil
+	}
+
+	symlinkPath := filepath.Join(importDir, ver)
+	_, err = os.Lstat(symlinkPath)
+	if !os.IsNotExist(err) {
+		if err != nil {
+			return err
+		}
+
+		if same, err := sameFile(symlinkPath, importDir); err != nil {
+			return err
+		} else if same {
+			// Valid symlink already exists; nothing to do
+			debug(info("[INFO]"), symlinkPath, "already exists and is valid")
+			return nil
+		} else {
+			// Something else already exists at this path; don't touch it.
+			debug(warning("[WARN]"), symlinkPath, "already exists, but conflicts with module name in go.mod")
+			return nil
+		}
+	}
+
+	if err := os.Symlink(".", symlinkPath); err != nil {
+		return err
+	}
+	debug(info("[INFO]"), "created symlink", symlinkPath, "=>", importPath)
+	return nil
 }
