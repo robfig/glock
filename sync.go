@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/agtorre/gocolorize"
@@ -44,8 +43,6 @@ var (
 	critical = gocolorize.NewColor("red").Paint
 
 	disabled = func(args ...interface{}) string { return fmt.Sprint(args...) }
-
-	majorVersionSuffix = regexp.MustCompile(`/v[\d]+$`)
 )
 
 // Running too many syncs at once can exhaust file descriptor limits.
@@ -258,7 +255,7 @@ func maybeLinkModulePath(importPath string) error {
 	// Check if the module doesn't point to an implicit major release,
 	// in which case, do nothing except maybe warn if the GLOCKFILE import path
 	// doesn't match the module name in its go.mod.
-	if !majorVersionSuffix.MatchString(goModFile.Module.Mod.Path) {
+	if !hasMajorVersionSuffix(goModFile.Module.Mod.Path) {
 		if importPath != goModFile.Module.Mod.Path {
 			debug(warning("[WARN]"), "import path", importPath, "conflicts with go.mod path", goModFile.Module.Mod.Path)
 		}
