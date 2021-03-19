@@ -7,7 +7,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 )
+
+var majorVersionSuffix = regexp.MustCompile(`/v[\d]+$`)
 
 // managedRepo is the repo being managed by glock (where the GLOCKFILE resides)
 // Like repoRoot, except managedRepo is allowed to be outside the GOPATH.
@@ -48,6 +51,12 @@ func glockRepoRootForImportPath(importPath string) (*repoRoot, error) {
 	}
 
 	for dir := pkg.ImportPath; len(dir) > 1; dir = filepath.Dir(dir) {
+		// Skip major-version suffixes, as they are never repo roots and not
+		// skipping can cause fastRepoRoot(dir) to incorrectly treat it as a
+		// repo root when it is a symlink created by glock to the real root.
+		if hasMajorVersionSuffix(dir) {
+			continue
+		}
 		rr, err := fastRepoRoot(dir)
 		if err == nil {
 			return rr, nil
@@ -167,4 +176,9 @@ func debug(args ...interface{}) {
 	if buildV {
 		fmt.Fprintln(os.Stderr, args...)
 	}
+}
+
+// hasMajorVersionSuffix returns true if importPath has a major version suffix.
+func hasMajorVersionSuffix(importPath string) bool {
+	return majorVersionSuffix.MatchString(importPath)
 }
